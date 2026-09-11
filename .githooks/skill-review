@@ -1,24 +1,32 @@
-#!/bin/bash
-# Pre-commit hook: Run skill-review on all changed skills
-# Blocks commit if any skill fails review
-# Override with: git commit --no-verify
+#!/usr/bin/env bash
+#
+# Pre-commit hook: run scripts/skill-review on every changed skill.
+# Blocks the commit only when the review actually ran and found something.
+# A review that could not run at all (no backend configured, network down)
+# is a warning, not a block: infra trouble on your machine should never be
+# the reason --no-verify starts feeling routine.
+#
+# The backends and their config live in scripts/skill-review; see SETUP.md.
 
-set -e
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+TOOL="scripts/skill-review"
 
 # Every skill in the repository, derived rather than listed. A hardcoded array
 # goes stale the first time a skill is added and nobody notices, because the
-# symptom is a skill silently not being reviewed.
+# symptom is a skill silently not being reviewed. Skills live under skills/,
+# which is where the plugin runtime looks for them; globbing */ here would
+# match nothing and report success against an empty list.
 SKILLS=()
-for d in */; do
+for d in skills/*/; do
   d="${d%/}"
-  case "$d" in .*|scripts) continue ;; esac
   [ -f "$d/SKILL.md" ] && SKILLS+=("$d")
 done
+if [ "${#SKILLS[@]}" -eq 0 ]; then exit 0; fi
 
-# Get staged files
 STAGED=$(git diff --cached --name-only)
 
-# Find which skills have changes
 CHANGED_SKILLS=()
 for skill in "${SKILLS[@]}"; do
   if echo "$STAGED" | grep -q "^$skill/"; then
@@ -26,65 +34,52 @@ for skill in "${SKILLS[@]}"; do
   fi
 done
 
-# If no skills changed, pass
-if [ ${#CHANGED_SKILLS[@]} -eq 0 ]; then
+if [ "${#CHANGED_SKILLS[@]}" -eq 0 ]; then
   exit 0
 fi
 
-echo "🔍 Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
-
-# Check if skill-review is available in PATH
-# This repository does not ship the skill-review command. Without it there is
-# nothing to run, and failing the commit would block every contributor on a
-# tool they were never given. Skip, and say so.
-if ! command -v skill-review &> /dev/null; then
-  echo "⚠️  skill-review not on PATH, skipping review (see SETUP.md)"
+if [ ! -x "$TOOL" ]; then
+  echo "scripts/skill-review missing or not executable, skipping review"
   exit 0
 fi
 
-# Check if the API key is set
-if [ -z "${OPENROUTER_API_KEY}" ]; then
-  # Try to load from .env.local
-  if [ -f ".env.local" ]; then
-    export $(grep OPENROUTER_API_KEY ".env.local" | xargs)
-  fi
-fi
+echo "Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
 
-if [ -z "${OPENROUTER_API_KEY}" ]; then
-  echo "⚠️  OPENROUTER_API_KEY not set"
-  echo "Set it in .env.local or export OPENROUTER_API_KEY=your-key"
-  echo "Skipping review (use --no-verify to bypass hook)"
-  exit 0
-fi
-
-# Review each changed skill
 FAILED=0
+PASSED=0
+SKIPPED=0
 for skill in "${CHANGED_SKILLS[@]}"; do
   echo ""
-  echo "📋 Reviewing $skill..."
+  echo "Reviewing $skill..."
 
-  # Run skill-review and capture output
-  if OUTPUT=$(skill-review "$skill" 2>&1); then
-    # Check if review passed (no major issues)
-    if echo "$OUTPUT" | grep -q "✅ Clean\|Ready for distribution"; then
-      echo "✅ $skill passed review"
-    else
-      echo "⚠️  $skill review complete (check output above)"
-    fi
-  else
-    echo "❌ $skill review failed"
+  if OUTPUT=$("$TOOL" "$skill" 2>&1); then
     echo "$OUTPUT"
-    FAILED=$((FAILED + 1))
+    echo "$skill passed review"
+    PASSED=$((PASSED + 1))
+  else
+    STATUS=$?
+    echo "$OUTPUT"
+    if [ "$STATUS" -eq 1 ]; then
+      echo "$skill review failed"
+      FAILED=$((FAILED + 1))
+    else
+      echo "review could not run for $skill, skipping (see SETUP.md)"
+      SKIPPED=$((SKIPPED + 1))
+    fi
   fi
 done
 
-if [ $FAILED -gt 0 ]; then
+if [ "$FAILED" -gt 0 ]; then
   echo ""
-  echo "❌ $FAILED skill(s) failed review. Fix issues and try again."
+  echo "$FAILED skill(s) failed review. Fix the findings and commit again."
   echo "Override with: git commit --no-verify (not recommended)"
   exit 1
 fi
 
 echo ""
-echo "✅ All skills passed review. Committing..."
+if [ "$PASSED" -gt 0 ]; then
+  echo "$PASSED skill(s) passed review, $SKIPPED skipped."
+else
+  echo "No skill was actually reviewed ($SKIPPED skipped). See SETUP.md."
+fi
 exit 0

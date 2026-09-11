@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#
+# Fires after a merge brings new commits in, which for this repo means after
+# `git pull` on main once a pull request lands. Delegates to a personal
+# .githooks/local/post-merge if you have one. See .githooks/run-local.
+
+exec bash "$(git rev-parse --show-toplevel)/.githooks/run-local" post-merge "$@"

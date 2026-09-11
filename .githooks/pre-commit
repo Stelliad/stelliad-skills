@@ -1,16 +1,41 @@
 #!/usr/bin/env bash
 #
-# Client-side half of the distribution boundary check.
+# Client-side half of the distribution boundary check, plus the model review
+# of any skill you touched.
 #
-# The rules live in scripts/validate-skills.sh, not here. This hook is a
-# convenience that catches a problem before you commit it; the gate that
+# The boundary rules live in scripts/validate-skills.sh, not here. This hook is
+# a convenience that catches a problem before you commit it; the gate that
 # actually holds is .github/workflows/validate.yml, which runs on every push
 # and cannot be skipped with --no-verify.
+#
+# The model review (.githooks/skill-review, calling scripts/skill-review) is a
+# second, optional layer on top: it reads for quality, not the boundary, and
+# skips itself with a warning when no backend is configured. See SETUP.md.
 #
 # Enable: git config core.hooksPath .githooks
 
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# Changes reach main through a pull request, so a commit sitting directly on
+# main is almost always a slip rather than a decision. Catching it here is
+# cheap: the staged changes survive `git switch -c`, so the fix is one command
+# and nothing is lost. A rebase or a merge sets no symbolic ref, so those pass
+# through untouched.
+BRANCH=$(git symbolic-ref --short -q HEAD || true)
+ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
+if [ "$BRANCH" = "main" ] && [ "$ALLOW" != "true" ]; then
+  echo "Refusing to commit directly on main. Changes land through a pull request."
+  echo
+  echo "  git switch -c your-branch-name   # staged changes come with you"
+  echo "  git commit ..."
+  echo "  git push -u origin your-branch-name && gh pr create"
+  echo
+  echo "If you really mean to commit on main:"
+  echo "  git config stelliad.allowMainCommits true   # persistent, per clone"
+  echo "  git commit --no-verify                      # just this once"
+  exit 1
+fi
 
 STAGED=()
 while IFS= read -r f; do [ -n "$f" ] && STAGED+=("$f"); done \
@@ -24,4 +49,9 @@ if ! bash scripts/validate-skills.sh --from-index "${STAGED[@]}"; then
   echo "will catch the same thing on push, so it is cheaper to fix it here."
   exit 1
 fi
+
+if ! bash .githooks/skill-review; then
+  exit 1
+fi
+
 exit 0

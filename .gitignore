@@ -1,3 +1,14 @@
 
 # Internal planning, never public
 DISTRIBUTION.md
+
+# Per-contributor review backend config (API keys, SKILL_REVIEW_*), never public
+.env.local
+
+# Session scratch from local agent tooling, not part of the distribution
+logs/
+.agentics/
+
+# Personal machine wiring hung off the tracked hooks (plugin reinstalls and the
+# like). Never public: it is specific to one machine, not to this repository.
+.githooks/local/

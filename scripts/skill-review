@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+#
+# Reviews one skill's docs for the things a pattern matcher cannot catch:
+# tone, voice, whether an example is really generic, whether the structure
+# holds together. scripts/validate-skills.sh guards the distribution
+# boundary; this guards quality. See SETUP.md for which one actually gates.
+#
+# Four backends, so no single vendor is a prerequisite for contributing:
+#
+#   anthropic   Claude Opus 5 on the Anthropic Messages API. ANTHROPIC_API_KEY.
+#   openrouter  Claude Opus 5 through OpenRouter, an independent reseller.
+#               OPENROUTER_API_KEY.
+#   bedrock     Claude on Amazon Bedrock through the AWS CLI. Needs
+#               SKILL_REVIEW_BEDROCK_MODEL, because the model id on Bedrock is
+#               an account and region specific inference profile that this
+#               script has no way to guess.
+#   claude      Runs the review on your own machine via `claude -p` (or
+#               SKILL_REVIEW_CLAUDE_CMD). No account here at all, no API key,
+#               nothing leaves your machine beyond whatever that CLI is already
+#               configured to talk to.
+#
+# With SKILL_REVIEW_BACKEND unset, the first backend above that is actually
+# configured wins, and the script says which one it picked.
+#
+# Usage:
+#   skill-review <skill-dir>
+#   skill-review --help
+#
+# Env:
+#   SKILL_REVIEW_BACKEND         auto (default) | anthropic | openrouter
+#                                | bedrock | claude
+#   ANTHROPIC_API_KEY            anthropic backend
+#   OPENROUTER_API_KEY           openrouter backend
+#   SKILL_REVIEW_BEDROCK_MODEL   bedrock backend, required, no default
+#   AWS_REGION                   bedrock backend, if your AWS profile has none
+#   SKILL_REVIEW_CLAUDE_CMD      claude backend (default: "claude -p")
+#
+# Every one of these can also live in .env.local, as plain KEY=value lines.
+# The environment always wins over the file.
+#
+# Exit codes: 0 clean, 1 the review found issues, 2 the tool itself could
+# not run (bad input, missing dependency, network or API error).
+
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: skill-review <skill-dir>
+       skill-review --help
+
+Reviews a skill folder's docs (SKILL.md, SPEC.md, CUSTOMIZE.md, README.md,
+whichever are present) for tone, voice, example quality, hidden internal
+references, strategy leaks, and structure. See SETUP.md for what it checks.
+
+Backend (SKILL_REVIEW_BACKEND), default auto:
+  anthropic    Claude Opus 5 on the Anthropic Messages API. ANTHROPIC_API_KEY.
+  openrouter   Claude Opus 5 through OpenRouter. OPENROUTER_API_KEY.
+  bedrock      Claude on Amazon Bedrock via the AWS CLI. Requires
+               SKILL_REVIEW_BEDROCK_MODEL (an inference profile id).
+  claude       Local `claude -p`, or SKILL_REVIEW_CLAUDE_CMD. No API key.
+
+auto picks the first of those that is configured, in that order.
+
+Exit codes: 0 clean, 1 review found issues, 2 tool error.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
+# .env.local holds plain KEY=value lines, no quoting. Only fills in a variable
+# that is not already set in the environment, so an explicit `export` always
+# wins over the file. Read from the repo root, not the caller's directory:
+# a hook runs from the root, a contributor may not.
+load_env_local() {
+  local root env_file name value
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || root="."
+  env_file="$root/.env.local"
+  [ -f "$env_file" ] || return 0
+  for name in ANTHROPIC_API_KEY OPENROUTER_API_KEY SKILL_REVIEW_BACKEND \
+              SKILL_REVIEW_BEDROCK_MODEL SKILL_REVIEW_CLAUDE_CMD AWS_REGION; do
+    [ -n "${!name:-}" ] && continue
+    value=$(grep -m1 "^${name}=" "$env_file" | cut -d= -f2-)
+    [ -n "$value" ] && export "$name=$value"
+  done
+}
+load_env_local
+
+SKILL_DIR="${1:-}"
+if [ -z "$SKILL_DIR" ]; then
+  echo "skill-review: missing <skill-dir>" >&2
+  usage >&2
+  exit 2
+fi
+SKILL_DIR="${SKILL_DIR%/}"
+if [ ! -d "$SKILL_DIR" ]; then
+  echo "skill-review: no such directory: $SKILL_DIR" >&2
+  exit 2
+fi
+
+# Not every skill folder has all four docs in the working tree at review
+# time (mid-edit, say). Review what is there.
+DOCS=()
+for f in SKILL.md SPEC.md CUSTOMIZE.md README.md; do
+  [ -f "$SKILL_DIR/$f" ] && DOCS+=("$f")
+done
+if [ "${#DOCS[@]}" -eq 0 ]; then
+  echo "skill-review: no SKILL.md, SPEC.md, CUSTOMIZE.md, or README.md in $SKILL_DIR" >&2
+  exit 2
+fi
+
+INSTRUCTIONS=$(cat <<'EOF'
+You are reviewing a skill folder before it ships in a public, multi-tenant
+skill library. Read the files below and check for exactly these things:
+
+1. Tone and Voice: company names, internal references, anything that assumes
+   the reader is inside one specific organization.
+2. Example Quality: examples tied to one company's specific tools or
+   workflows rather than illustrating the general case.
+3. Hidden Internal References: language that reads as an internal
+   methodology term, a specific person's voice or phrasing, or jargon that
+   only makes sense inside one team.
+4. Strategy Leaks: hints at roadmap, internal decisions, or unfinished
+   thoughts that were not meant to ship.
+5. Structure: missing sections, unclear progression, incomplete guidance.
+
+If you find nothing across all five, respond with exactly this line and
+nothing else:
+
+Clean, ready for distribution
+
+If you find anything, list each issue as a bullet: which file, the exact
+offending text or section, which of the five categories it falls under, and
+a one line fix. Do not soften a real finding into a suggestion, and do not
+invent a finding to have something to say.
+EOF
+)
+
+CONTENT=""
+for f in "${DOCS[@]}"; do
+  CONTENT="${CONTENT}
+--- ${SKILL_DIR}/${f} ---
+$(cat "$SKILL_DIR/$f")
+"
+done
+
+need() {
+  command -v "$1" >/dev/null 2>&1 && return 0
+  echo "skill-review: $1 is required for the $2 backend" >&2
+  return 1
+}
+
+# Which backends could run right now. Used both to resolve `auto` and to say
+# something useful when nothing is configured.
+backend_ready() {
+  case "$1" in
+    anthropic)  [ -n "${ANTHROPIC_API_KEY:-}" ] ;;
+    openrouter) [ -n "${OPENROUTER_API_KEY:-}" ] ;;
+    bedrock)    [ -n "${SKILL_REVIEW_BEDROCK_MODEL:-}" ] && command -v aws >/dev/null 2>&1 ;;
+    claude)     command -v "$(set -- ${SKILL_REVIEW_CLAUDE_CMD:-claude -p}; echo "$1")" >/dev/null 2>&1 ;;
+    *)          return 1 ;;
+  esac
+}
+
+run_anthropic() {
+  need curl anthropic || return 2
+  need jq anthropic || return 2
+
+  echo "Calling the Anthropic Messages API (claude-opus-5)..." >&2
+
+  local payload response err
+  payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
+    model: "claude-opus-5",
+    max_tokens: 8000,
+    system: $sys,
+    messages: [{role: "user", content: $user}]
+  }')
+
+  response=$(curl -sS https://api.anthropic.com/v1/messages \
+    -H "x-api-key: $ANTHROPIC_API_KEY" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "Content-Type: application/json" \
+    -d "$payload") || { echo "skill-review: Anthropic request failed" >&2; return 2; }
+
+  err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$err" ]; then
+    echo "skill-review: Anthropic error: $err" >&2
+    return 2
+  fi
+
+  printf '%s' "$response" | jq -r '[.content[]? | select(.type == "text") | .text] | join("")'
+}
+
+run_openrouter() {
+  need curl openrouter || return 2
+  need jq openrouter || return 2
+
+  echo "Calling OpenRouter (anthropic/claude-opus-5)..." >&2
+
+  local payload response err
+  payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
+    model: "anthropic/claude-opus-5",
+    messages: [
+      {role: "system", content: $sys},
+      {role: "user", content: $user}
+    ]
+  }')
+
+  response=$(curl -sS https://openrouter.ai/api/v1/chat/completions \
+    -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "$payload") || { echo "skill-review: OpenRouter request failed" >&2; return 2; }
+
+  err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$err" ]; then
+    echo "skill-review: OpenRouter error: $err" >&2
+    return 2
+  fi
+
+  printf '%s' "$response" | jq -r '.choices[0].message.content // empty'
+}
+
+# Bedrock through the AWS CLI rather than a signed curl: SigV4 by hand in bash
+# is a liability, and anyone with Bedrock access already has the CLI and its
+# credential chain configured.
+run_bedrock() {
+  need aws bedrock || return 2
+  need jq bedrock || return 2
+
+  if [ -z "${SKILL_REVIEW_BEDROCK_MODEL:-}" ]; then
+    echo "skill-review: set SKILL_REVIEW_BEDROCK_MODEL to the inference profile id for your account and region (see SETUP.md)" >&2
+    return 2
+  fi
+
+  echo "Calling Bedrock ($SKILL_REVIEW_BEDROCK_MODEL)..." >&2
+
+  # An empty array expanded plainly is an unbound variable under `set -u` on
+  # bash 3.2, which is what macOS ships. The +"..." guard expands to nothing
+  # when AWS_REGION is unset and to the two words when it is set.
+  local messages system out region=()
+  [ -n "${AWS_REGION:-}" ] && region=(--region "$AWS_REGION")
+  messages=$(jq -n --arg user "$CONTENT" '[{role: "user", content: [{text: $user}]}]')
+  system=$(jq -n --arg sys "$INSTRUCTIONS" '[{text: $sys}]')
+
+  out=$(aws bedrock-runtime converse \
+    ${region[@]+"${region[@]}"} \
+    --model-id "$SKILL_REVIEW_BEDROCK_MODEL" \
+    --messages "$messages" \
+    --system "$system" \
+    --output json 2>&1) || {
+      echo "skill-review: Bedrock request failed" >&2
+      echo "$out" >&2
+      return 2
+    }
+
+  printf '%s' "$out" | jq -r '[.output.message.content[]? | .text // empty] | join("")'
+}
+
+run_claude() {
+  local cmd="${SKILL_REVIEW_CLAUDE_CMD:-claude -p}"
+  need "${cmd%% *}" claude || return 2
+  echo "Running the review locally via $cmd..." >&2
+  printf '%s\n\n%s' "$INSTRUCTIONS" "$CONTENT" | $cmd
+}
+
+BACKEND="${SKILL_REVIEW_BACKEND:-auto}"
+
+if [ "$BACKEND" = "auto" ]; then
+  for candidate in anthropic openrouter bedrock claude; do
+    if backend_ready "$candidate"; then BACKEND="$candidate"; break; fi
+  done
+  if [ "$BACKEND" = "auto" ]; then
+    echo "skill-review: no review backend is configured. Set one of" >&2
+    echo "  ANTHROPIC_API_KEY, OPENROUTER_API_KEY, SKILL_REVIEW_BEDROCK_MODEL," >&2
+    echo "  or put a 'claude' command on your PATH. See SETUP.md." >&2
+    exit 2
+  fi
+  echo "Backend: $BACKEND (auto). Pin it with SKILL_REVIEW_BACKEND." >&2
+fi
+
+case "$BACKEND" in
+  anthropic)  OUTPUT=$(run_anthropic); STATUS=$? ;;
+  openrouter) OUTPUT=$(run_openrouter); STATUS=$? ;;
+  bedrock)    OUTPUT=$(run_bedrock); STATUS=$? ;;
+  claude)     OUTPUT=$(run_claude); STATUS=$? ;;
+  *)
+    echo "skill-review: unknown SKILL_REVIEW_BACKEND: $BACKEND" >&2
+    echo "Want one of: auto, anthropic, openrouter, bedrock, claude." >&2
+    exit 2
+    ;;
+esac
+
+if [ "$STATUS" -ne 0 ] || [ -z "$OUTPUT" ]; then
+  [ -n "${OUTPUT:-}" ] && echo "$OUTPUT" >&2
+  exit 2
+fi
+
+echo "$OUTPUT"
+
+if echo "$OUTPUT" | grep -qi "clean, ready for distribution"; then
+  exit 0
+fi
+exit 1
