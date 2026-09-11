@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Client-side half of the distribution boundary check.
+#
+# The rules live in scripts/validate-skills.sh, not here. This hook is a
+# convenience that catches a problem before you commit it; the gate that
+# actually holds is .github/workflows/validate.yml, which runs on every push
+# and cannot be skipped with --no-verify.
+#
+# Enable: git config core.hooksPath .githooks
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+STAGED=()
+while IFS= read -r f; do [ -n "$f" ] && STAGED+=("$f"); done \
+  < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ "${#STAGED[@]}" -eq 0 ]; then exit 0; fi
+
+if ! bash scripts/validate-skills.sh --from-index "${STAGED[@]}"; then
+  echo
+  echo "Commit blocked. --no-verify will get you past this hook, and then CI"
+  echo "will catch the same thing on push, so it is cheaper to fix it here."
+  exit 1
+fi
+exit 0

@@ -1,0 +1,90 @@
+#!/bin/bash
+# Pre-commit hook: Run skill-review on all changed skills
+# Blocks commit if any skill fails review
+# Override with: git commit --no-verify
+
+set -e
+
+# Every skill in the repository, derived rather than listed. A hardcoded array
+# goes stale the first time a skill is added and nobody notices, because the
+# symptom is a skill silently not being reviewed.
+SKILLS=()
+for d in */; do
+  d="${d%/}"
+  case "$d" in .*|scripts) continue ;; esac
+  [ -f "$d/SKILL.md" ] && SKILLS+=("$d")
+done
+
+# Get staged files
+STAGED=$(git diff --cached --name-only)
+
+# Find which skills have changes
+CHANGED_SKILLS=()
+for skill in "${SKILLS[@]}"; do
+  if echo "$STAGED" | grep -q "^$skill/"; then
+    CHANGED_SKILLS+=("$skill")
+  fi
+done
+
+# If no skills changed, pass
+if [ ${#CHANGED_SKILLS[@]} -eq 0 ]; then
+  exit 0
+fi
+
+echo "🔍 Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
+
+# Check if skill-review is available in PATH
+# This repository does not ship the skill-review command. Without it there is
+# nothing to run, and failing the commit would block every contributor on a
+# tool they were never given. Skip, and say so.
+if ! command -v skill-review &> /dev/null; then
+  echo "⚠️  skill-review not on PATH, skipping review (see SETUP.md)"
+  exit 0
+fi
+
+# Check if the API key is set
+if [ -z "${OPENROUTER_API_KEY}" ]; then
+  # Try to load from .env.local
+  if [ -f ".env.local" ]; then
+    export $(grep OPENROUTER_API_KEY ".env.local" | xargs)
+  fi
+fi
+
+if [ -z "${OPENROUTER_API_KEY}" ]; then
+  echo "⚠️  OPENROUTER_API_KEY not set"
+  echo "Set it in .env.local or export OPENROUTER_API_KEY=your-key"
+  echo "Skipping review (use --no-verify to bypass hook)"
+  exit 0
+fi
+
+# Review each changed skill
+FAILED=0
+for skill in "${CHANGED_SKILLS[@]}"; do
+  echo ""
+  echo "📋 Reviewing $skill..."
+
+  # Run skill-review and capture output
+  if OUTPUT=$(skill-review "$skill" 2>&1); then
+    # Check if review passed (no major issues)
+    if echo "$OUTPUT" | grep -q "✅ Clean\|Ready for distribution"; then
+      echo "✅ $skill passed review"
+    else
+      echo "⚠️  $skill review complete (check output above)"
+    fi
+  else
+    echo "❌ $skill review failed"
+    echo "$OUTPUT"
+    FAILED=$((FAILED + 1))
+  fi
+done
+
+if [ $FAILED -gt 0 ]; then
+  echo ""
+  echo "❌ $FAILED skill(s) failed review. Fix issues and try again."
+  echo "Override with: git commit --no-verify (not recommended)"
+  exit 1
+fi
+
+echo ""
+echo "✅ All skills passed review. Committing..."
+exit 0

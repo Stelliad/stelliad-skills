@@ -1,0 +1,90 @@
+name: Validate
+
+# The gate that actually holds. The pre-commit hook checks the same rules from
+# the same script, but a hook needs a manual `git config core.hooksPath`, is
+# absent on a fresh clone, and dies to --no-verify. This does not.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  boundary:
+    name: Distribution boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # git ls-files, and full history for the secret sweep
+
+      - name: Validate every tracked file
+        run: bash scripts/validate-skills.sh --from-worktree
+
+      # The working-tree sweep above cannot see a secret that was committed and
+      # then removed. This is the only check that reads history, so it runs on
+      # its own and says plainly what it does and does not cover.
+      - name: Sweep git history for committed secrets
+        run: |
+          set -uo pipefail
+          PATTERNS='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY'
+          # The rule-carrying files list these patterns as documentation, so
+          # they match themselves. Excluded here for the same reason
+          # validate-skills.sh skips them: a checker that fails on its own
+          # rulebook trains people to ignore it.
+          if git log -p --all --no-color -- . \
+               ':(exclude).githooks/pre-commit' \
+               ':(exclude)scripts/validate-skills.sh' \
+             | grep -E '^\+' \
+             | grep -Ev '([Yy]our|YOUR|[Xx]{3}|[Ee]xample|EXAMPLE|[Pp]laceholder|changeme|CHANGEME|redacted|REDACTED)' \
+             | grep -Eq "$PATTERNS"; then
+            echo "::error::A credential-shaped value appears in git history."
+            echo "Removing it from the tree does not remove it from history."
+            echo "Treat it as leaked: rotate the credential first, then rewrite history."
+            exit 1
+          fi
+          echo "No credential-shaped values in history."
+
+  structure:
+    name: Skill structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every skill ships four files and each one's cross-references point at
+      # the other three. A skill folder that is missing one has broken
+      # cross-references already, whether or not anyone has noticed.
+      - name: Every skill ships all four files
+        run: |
+          set -uo pipefail
+          fail=0
+          for d in skills/*/; do
+            d="${d%/}"
+            [ -f "$d/SKILL.md" ] || continue
+            for r in SKILL.md SPEC.md CUSTOMIZE.md README.md; do
+              if [ ! -f "$d/$r" ]; then
+                echo "::error file=$d::missing $r"
+                fail=1
+              fi
+            done
+          done
+          exit $fail
+
+      # The root README is the front page. A skill that ships without a row
+      # there is a skill nobody finds.
+      - name: Every skill appears in the root README
+        run: |
+          set -uo pipefail
+          fail=0
+          for d in skills/*/; do
+            d="${d%/}"
+            [ -f "$d/SKILL.md" ] || continue
+            if ! grep -q "\*\*$(basename "$d")\*\*" README.md; then
+              echo "::error file=README.md::$d has no row in the skills table"
+              fail=1
+            fi
+          done
+          exit $fail

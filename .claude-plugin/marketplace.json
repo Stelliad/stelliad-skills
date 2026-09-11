@@ -1,0 +1,16 @@
+{
+  "name": "stelliad",
+  "description": "Ten general-purpose skills for any team",
+  "owner": {
+    "name": "Stelliad",
+    "url": "https://github.com/Stelliad"
+  },
+  "plugins": [
+    {
+      "name": "stelliad",
+      "source": "./",
+      "description": "Ten skills, each shipping SKILL.md, SPEC.md, CUSTOMIZE.md and README.md",
+      "version": "0.1.0"
+    }
+  ]
+}
