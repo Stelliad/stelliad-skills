@@ -20,11 +20,23 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # Changes reach main through a pull request, so a commit sitting directly on
 # main is almost always a slip rather than a decision. Catching it here is
 # cheap: the staged changes survive `git switch -c`, so the fix is one command
-# and nothing is lost. A rebase or a merge sets no symbolic ref, so those pass
-# through untouched.
+# and nothing is lost.
+#
+# Two things are deliberately not caught. A rebase detaches HEAD, so there is
+# no symbolic ref and the guard does not fire. A merge, cherry-pick or revert
+# does NOT detach: HEAD stays on main, so finishing a conflicted `git pull`
+# would otherwise be refused with no way forward except --no-verify. The
+# in-progress marker files are the signal that this commit concludes an
+# operation git already started, not a new change being authored on main.
+GIT_DIR=$(git rev-parse --git-dir)
+IN_PROGRESS=false
+for marker in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
+  [ -f "$GIT_DIR/$marker" ] && IN_PROGRESS=true
+done
+
 BRANCH=$(git symbolic-ref --short -q HEAD || true)
 ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
-if [ "$BRANCH" = "main" ] && [ "$ALLOW" != "true" ]; then
+if [ "$BRANCH" = "main" ] && [ "$ALLOW" != "true" ] && [ "$IN_PROGRESS" = "false" ]; then
   echo "Refusing to commit directly on main. Changes land through a pull request."
   echo
   echo "  git switch -c your-branch-name   # staged changes come with you"

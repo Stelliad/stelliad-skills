@@ -23,7 +23,7 @@
 # configured wins, and the script says which one it picked.
 #
 # Usage:
-#   skill-review <skill-dir>
+#   skill-review <skill-dir> [label]
 #   skill-review --help
 #
 # Env:
@@ -45,12 +45,15 @@ set -uo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: skill-review <skill-dir>
+Usage: skill-review <skill-dir> [label]
        skill-review --help
 
 Reviews a skill folder's docs (SKILL.md, SPEC.md, CUSTOMIZE.md, README.md,
 whichever are present) for tone, voice, example quality, hidden internal
 references, strategy leaks, and structure. See SETUP.md for what it checks.
+
+[label] is the path the review should cite instead of <skill-dir>. The
+pre-commit hook passes one because it reviews a snapshot of the index.
 
 Backend (SKILL_REVIEW_BACKEND), default auto:
   anthropic    Claude Opus 5 on the Anthropic Messages API. ANTHROPIC_API_KEY.
@@ -94,6 +97,11 @@ if [ -z "$SKILL_DIR" ]; then
   exit 2
 fi
 SKILL_DIR="${SKILL_DIR%/}"
+# What the review should call this skill. The hook reviews a snapshot of the
+# index in a temp directory, and findings that cite /var/folders/... are
+# findings nobody can act on.
+LABEL="${2:-$SKILL_DIR}"
+LABEL="${LABEL%/}"
 if [ ! -d "$SKILL_DIR" ]; then
   echo "skill-review: no such directory: $SKILL_DIR" >&2
   exit 2
@@ -140,7 +148,7 @@ EOF
 CONTENT=""
 for f in "${DOCS[@]}"; do
   CONTENT="${CONTENT}
---- ${SKILL_DIR}/${f} ---
+--- ${LABEL}/${f} ---
 $(cat "$SKILL_DIR/$f")
 "
 done
@@ -177,11 +185,13 @@ run_anthropic() {
     messages: [{role: "user", content: $user}]
   }')
 
-  response=$(curl -sS https://api.anthropic.com/v1/messages \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
-    -H "anthropic-version: 2023-06-01" \
-    -H "Content-Type: application/json" \
-    -d "$payload") || { echo "skill-review: Anthropic request failed" >&2; return 2; }
+  # Headers on stdin, not on the command line: an API key in argv is visible
+  # to every process on the machine through `ps`.
+  response=$(printf 'x-api-key: %s\nanthropic-version: 2023-06-01\nContent-Type: application/json\n' \
+      "$ANTHROPIC_API_KEY" \
+    | curl -sS https://api.anthropic.com/v1/messages \
+      -H @- \
+      -d "$payload") || { echo "skill-review: Anthropic request failed" >&2; return 2; }
 
   err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
   if [ -n "$err" ]; then
@@ -207,10 +217,12 @@ run_openrouter() {
     ]
   }')
 
-  response=$(curl -sS https://openrouter.ai/api/v1/chat/completions \
-    -H "Authorization: Bearer $OPENROUTER_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "$payload") || { echo "skill-review: OpenRouter request failed" >&2; return 2; }
+  # See the note in run_anthropic: the key goes over stdin, never argv.
+  response=$(printf 'Authorization: Bearer %s\nContent-Type: application/json\n' \
+      "$OPENROUTER_API_KEY" \
+    | curl -sS https://openrouter.ai/api/v1/chat/completions \
+      -H @- \
+      -d "$payload") || { echo "skill-review: OpenRouter request failed" >&2; return 2; }
 
   err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
   if [ -n "$err" ]; then
@@ -298,7 +310,15 @@ fi
 
 echo "$OUTPUT"
 
-if echo "$OUTPUT" | grep -qi "clean, ready for distribution"; then
+# The pass verdict is the ENTIRE output, one line, or it is not a pass.
+# Matching the phrase anywhere let "Not clean, ready for distribution only
+# after the fix above" exit 0 while the finding above it scrolled past, and it
+# let any backend that echoed the prompt pass, since INSTRUCTIONS contains the
+# phrase too. Fail closed: a reviewer that cannot say the single line gets
+# treated as having found something.
+trimmed=$(printf '%s\n' "$OUTPUT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d')
+if [ "$(printf '%s\n' "$trimmed" | grep -c .)" -eq 1 ] \
+   && printf '%s\n' "$trimmed" | grep -qixE 'clean, ready for distribution\.?'; then
   exit 0
 fi
 exit 1

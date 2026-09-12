@@ -43,6 +43,30 @@ if [ ! -x "$TOOL" ]; then
   exit 0
 fi
 
+# Review what is about to be committed, not what happens to be on disk.
+# scripts/validate-skills.sh already reads --from-index; the review did not,
+# so with a partially staged file the model read text that was never going in.
+# checkout-index writes the index content into a scratch tree, and the real
+# path is passed through as a label so findings stay actionable.
+SNAP=$(mktemp -d 2>/dev/null) || SNAP=""
+if [ -n "$SNAP" ]; then
+  trap 'rm -rf "$SNAP"' EXIT INT TERM
+fi
+
+snapshot_of() {
+  # Echoes a directory holding the indexed copy of $1, or $1 itself if the
+  # snapshot could not be made. Falling back to the working tree is worse than
+  # the snapshot and better than not reviewing at all.
+  local skill="$1"
+  [ -n "$SNAP" ] || { echo "$skill"; return; }
+  if git ls-files -z -- "$skill" | xargs -0 git checkout-index --prefix="$SNAP/" -- 2>/dev/null \
+     && [ -d "$SNAP/$skill" ]; then
+    echo "$SNAP/$skill"
+  else
+    echo "$skill"
+  fi
+}
+
 echo "Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
 
 FAILED=0
@@ -52,7 +76,8 @@ for skill in "${CHANGED_SKILLS[@]}"; do
   echo ""
   echo "Reviewing $skill..."
 
-  if OUTPUT=$("$TOOL" "$skill" 2>&1); then
+  REVIEW_DIR=$(snapshot_of "$skill")
+  if OUTPUT=$("$TOOL" "$REVIEW_DIR" "$skill" 2>&1); then
     echo "$OUTPUT"
     echo "$skill passed review"
     PASSED=$((PASSED + 1))
