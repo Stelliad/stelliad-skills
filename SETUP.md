@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-11 15:32**
+**Last Updated: 2026-09-13 16:56**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -13,14 +13,14 @@
 
 ## What actually gates a change
 
-Two layers, and only one of them is a gate.
+One layer is a gate. Everything else is a local convenience.
 
 | Layer | Where | Skippable? |
 |---|---|---|
 | `scripts/validate-skills.sh` via `.github/workflows/validate.yml` | CI, on every push and pull request | **No** |
 | The same script via `.githooks/pre-commit` | Your machine, before the commit | Yes: absent on a fresh clone, and `--no-verify` bypasses it |
-| `scripts/skill-review` via `.githooks/pre-commit` | Your machine, if a review backend is configured | Yes, and it skips itself with a warning when none is |
-| The commit-on-main guard in `.githooks/pre-commit` | Your machine, before the commit | Yes: one git config setting, or `--no-verify` |
+| The main-branch guards in `.githooks/pre-commit` and `.githooks/pre-push` | Your machine, before a commit or push | Yes: one git config setting, or `--no-verify` |
+| `scripts/skill-review` via `.githooks/pre-commit` | Your machine, **only if you turn it on** | Off by default |
 
 **The boundary rules live in one place**, `scripts/validate-skills.sh`. The hook
 and the workflow both call it. Neither carries its own copy, because two copies
@@ -40,205 +40,120 @@ bash scripts/validate-skills.sh              # everything tracked
 bash scripts/validate-skills.sh path/to.md   # one file
 ```
 
-The model review below is a separate, optional layer. It reads for quality; the
-validator reads for the boundary. Neither substitutes for the other.
-
 ## 1. Install the Hooks (optional, and not the gate)
 
 ```bash
-# Clone the repo (if not done)
 git clone https://github.com/Stelliad/stelliad-skills.git
 cd stelliad-skills
-
-# Tell git to use .githooks directory
 git config core.hooksPath .githooks
-
-# Verify it worked
-git config core.hooksPath
-# Should print: .githooks
 ```
-
-That one setting turns on everything in `.githooks/`:
 
 | Hook | What it does |
 |---|---|
-| `pre-commit` | Refuses a commit made directly on main, then runs the boundary check and the model review |
-| `post-commit`, `post-merge`, `post-checkout` | Nothing on their own. They exist so a personal hook can run; see section 3 |
+| `pre-commit` | Refuses a commit made directly on main, runs the boundary check, then the model review if you turned it on |
+| `pre-push` | Refuses a push that would update main |
 
 **`core.hooksPath` replaces `.git/hooks` completely.** Anything you already had
-in `.git/hooks/` stops firing the moment you set it, with no warning. That is
-the reason the `post-*` hooks above exist at all.
+in `.git/hooks/` stops firing once you set it, with no warning. If you keep
+hooks of your own, point `core.hooksPath` at your own directory instead, and
+have each of your hooks call the matching one here first:
+
+```bash
+#!/usr/bin/env bash
+# pre-commit, in your own hooks directory
+root=$(git rev-parse --show-toplevel)
+"$root/.githooks/pre-commit" "$@" || exit $?
+# then whatever else you want to run
+```
 
 ## 2. Branching and Pull Requests
 
 Changes reach main through a pull request. The `pre-commit` hook refuses a
 commit made while main is checked out, because at that point the fix costs one
-command and nothing is lost: staged changes follow you onto a new branch.
+command and nothing is lost: staged changes follow you onto a new branch. The
+`pre-push` hook refuses the other route, `git push origin HEAD:main`.
 
 ```bash
 git switch -c fix/something-specific   # staged changes come along
-git add ...
 git commit -m "fix: something specific"
 git push -u origin fix/something-specific
 gh pr create --fill
 ```
 
 CI runs the boundary check on the pull request, and that is the gate that
-actually holds. After the pull request merges:
+actually holds. Finishing a conflicted merge, cherry-pick or revert on main is
+allowed, since that commit concludes an operation git already started.
+
+To work on main directly anyway:
 
 ```bash
-git switch main
-git pull
-```
-
-To commit on main anyway, either once or for good:
-
-```bash
-git commit --no-verify                     # this commit only
+git commit --no-verify                     # this commit or push only
 git config stelliad.allowMainCommits true  # this clone, permanently
 ```
 
-## 3. Personal Hooks (optional)
+## 3. Turn On the Model Review (optional)
 
-Anything executable at `.githooks/local/<hook-name>` runs when the matching
-tracked hook fires, and receives the same arguments. `.githooks/local/` is
-gitignored, so machine-specific wiring never ships to anyone who clones this
-repo. A personal hook that exits non-zero prints a note and is otherwise
-ignored: it runs after the fact, and the repository has no stake in whether it
-worked.
-
-The case this was built for is a maintainer who has this checkout registered as
-a local plugin marketplace. An install pins a commit and copies the tree into
-the plugin cache, so the skills Claude Code loads keep reflecting whatever was
-there at install time until something reinstalls them. A
-`.githooks/local/post-commit` closes that gap:
-
-```bash
-#!/bin/zsh
-# .githooks/local/post-commit  (gitignored)
-source ~/.zsh_extensions/.zsh_claude_code
-cld-plugin-reset stelliad stelliad && echo "stelliad plugin reset"
-```
-
-The same script as `post-merge` and `post-checkout` keeps the installed copy
-tracking whatever you have checked out: your branch while you work on it, main
-again once the pull request lands and you pull. `post-checkout` only fires on a
-real branch switch, never on a file checkout.
-
-## 4. Configure a Review Backend
-
-`scripts/skill-review` ships in this repo, but it needs a model behind it. Four
-backends are supported so that no single vendor account is a prerequisite for
-contributing. Configure whichever one you already have.
-
-With `SKILL_REVIEW_BACKEND` unset, the script picks the first configured
-backend in the order below and prints which one it chose. Set the variable to
-pin a specific one.
+`scripts/skill-review` asks a model to read a skill for the things a pattern
+matcher cannot catch. It is **off until you name a backend** with
+`SKILL_REVIEW_BACKEND`. Nothing is auto-detected: having Claude Code installed
+or an API key in your shell is not a request for a billed review that can block
+your commits.
 
 **Option A: Anthropic API.** Claude Opus 5 on the Messages API.
 
 ```bash
+export SKILL_REVIEW_BACKEND=anthropic
 export ANTHROPIC_API_KEY="sk-ant-your-key-here"
-export SKILL_REVIEW_BACKEND=anthropic   # optional, this is auto-detected
 ```
 
-**Option B: OpenRouter.** The same model through an independent reseller, which
-is useful if your billing already lives there. Create a key under Settings then
-API Keys at https://openrouter.ai/.
+**Option B: OpenRouter.** The same model through an independent reseller.
 
 ```bash
+export SKILL_REVIEW_BACKEND=openrouter
 export OPENROUTER_API_KEY="sk-or-your-key-here"
-export SKILL_REVIEW_BACKEND=openrouter  # optional, this is auto-detected
 ```
 
-**Option C: Amazon Bedrock.** Goes through the AWS CLI, so it uses whatever
-credential chain and profile you already have. There is no default model id:
-on Bedrock the id is an inference profile specific to your account and region,
-so you have to supply it.
+**Option C: Amazon Bedrock**, through the AWS CLI and whatever credential
+chain you already have. There is no default model id: on Bedrock it is an
+inference profile specific to your account and region. Find yours with
+`aws bedrock list-inference-profiles`.
 
 ```bash
+export SKILL_REVIEW_BACKEND=bedrock
 export SKILL_REVIEW_BEDROCK_MODEL="the-inference-profile-id-for-your-account"
-export AWS_REGION="us-east-1"           # only if your AWS profile has no region
-export SKILL_REVIEW_BACKEND=bedrock     # optional, this is auto-detected
+export AWS_REGION="us-east-1"   # only if your AWS profile has no region
 ```
 
-Find the id with `aws bedrock list-inference-profiles` and pick the Claude model
-your account is entitled to. Requires `aws` and `jq`.
-
-**Option D: your local Claude Code (`claude -p`).** No account of any kind here,
-no API key in this repo, and nothing leaves your machine beyond whatever that
-CLI is already configured to talk to (which is how Bedrock users usually want to
-run this).
+**Option D: your local Claude Code**, using the login you already have.
 
 ```bash
 export SKILL_REVIEW_BACKEND=claude
 ```
 
-By default this runs `claude -p`. Point `SKILL_REVIEW_CLAUDE_CMD` at something
-else if you want a different local command:
+This runs `claude -p --restricted --strict-mcp-config` from an empty temporary
+directory, so the review does not depend on who commits: your CLAUDE.md files,
+your settings (and with them your hooks and plugins), and your MCP servers are
+all left out, and the tools that run commands are removed. Set
+`SKILL_REVIEW_CLAUDE_CMD` to run something else, knowing that you give up that
+isolation.
 
-```bash
-export SKILL_REVIEW_CLAUDE_CMD="claude -p --model opus"
-```
+**Timeouts.** Each review gives up after 300 seconds and counts as unable to
+run. Change it with `SKILL_REVIEW_TIMEOUT`.
 
 **Where to put these.** Any of them can go in `.env.local` instead, as plain
 `KEY=value` lines with no quoting. That file is gitignored. The environment
-always wins over the file, so an `export` in your shell profile overrides it.
+always wins over the file.
 
-```bash
-cat > .env.local <<'ENV'
-SKILL_REVIEW_BACKEND=claude
-ENV
-```
-
-Run the tool directly to check the wiring before you commit anything:
+Check the wiring before you commit anything:
 
 ```bash
 scripts/skill-review skills/plumb
 ```
 
-## 5. Test the Setup
+## 4. What the Review Checks
 
-Try committing a change to verify the hook runs:
-
-```bash
-# Make a small change
-echo "# Test" >> skills/bloodhound/SPEC.md
-
-# Stage it
-git add skills/bloodhound/SPEC.md
-
-# Commit (hook will run automatically)
-git commit -m "test: hook verification"
-```
-
-If the hook is working, you'll see the boundary check, then:
-
-```
-Reviewing 1 skill(s) before commit...
-
-Reviewing skills/bloodhound...
-Backend: anthropic (auto). Pin it with SKILL_REVIEW_BACKEND.
-Calling the Anthropic Messages API (claude-opus-5)...
-Clean, ready for distribution
-skills/bloodhound passed review
-
-1 skill(s) passed review, 0 skipped.
-```
-
-If review finds issues:
-
-```
-skills/bloodhound review failed
-[findings, one bullet per issue]
-
-1 skill(s) failed review. Fix the findings and commit again.
-Override with: git commit --no-verify (not recommended)
-```
-
-## 6. What the Review Checks
-
-The review asks the model for five things, and nothing else:
+Every text file in the skill folder is sent, not only the four core docs, and
+the model is asked for exactly five things:
 
 | Check | What It Catches |
 |---|---|
@@ -248,121 +163,49 @@ The review asks the model for five things, and nothing else:
 | **Strategy Leaks** | Hints at roadmap, internal decisions, unfinished thoughts that were not meant to ship |
 | **Structure** | Missing sections, unclear progression, incomplete guidance |
 
-A clean review returns one line, `Clean, ready for distribution`, and the script
-exits 0. Anything else exits 1 and the hook blocks the commit. A backend that
-could not run at all exits 2, and the hook warns and lets the commit through:
-trouble with your own network or credentials should never be the reason
-`--no-verify` starts feeling routine.
+In the hook, the review reads the staged version of each changed skill, the
+same content the commit will take, not whatever is on disk.
 
-## 7. Fixing Review Failures
+| Result | Exit | What the hook does |
+|---|---|---|
+| The whole response is the single line `Clean, ready for distribution` | 0 | Passes |
+| Anything else | 1 | Blocks the commit and prints the findings |
+| The review could not run (timeout, network, credentials) | 2 | Warns and lets the commit through |
 
-When a skill fails review:
+The pass condition is deliberately strict. A response that mentions the phrase
+inside a sentence, or adds anything around it, is treated as a finding.
 
-1. Read the feedback carefully: it names the exact file and section
-2. Edit the skill's SPEC.md, CUSTOMIZE.md, or README.md to fix them
-3. Re-stage your changes
-4. Commit again: the hook runs again automatically
+## 5. Bypassing the Hooks (Last Resort)
 
-Example:
-
-```bash
-# Review flagged that SPEC.md names a specific company's rate card
-nano skills/bloodhound/SPEC.md
-
-# Replace it with "your organization's rate card", then stage and commit
-git add skills/bloodhound/SPEC.md
-git commit -m "fix: genericize rate card reference in bloodhound SPEC"
-```
-
-## 8. Bypassing the Hook (Last Resort)
-
-**Do not do this unless absolutely necessary.** The `--no-verify` flag skips all hooks:
+`--no-verify` skips every hook: the main-branch guards, the boundary check
+including the secrets scan, and the review.
 
 ```bash
 git commit --no-verify -m "msg"
 ```
 
-This:
-- Bypasses the commit-on-main guard
-- Bypasses the skill review
-- Bypasses the local boundary check, including the secrets scan
-- Leaves you with no local safety net at all
+CI still runs the boundary check on the pull request, so this buys you a later
+failure, not a pass. Use it for a broken hook setup, not to get past a finding.
 
-CI still runs the boundary check on push, so `--no-verify` buys you a later
-failure, not a pass.
+## 6. Troubleshooting
 
-**Only use if:**
-- Your review backend is down and blocking a legitimate commit, and the warning
-  path did not already let you through
-- You are fixing a broken hook setup
+**Nothing happened when I committed a skill change.** Either
+`git config core.hooksPath` is not `.githooks`, or `SKILL_REVIEW_BACKEND` is
+not set. The review is silent when it is off.
 
-Then check what went in without review:
+**"timed out after 300s".** The backend did not answer in time. Retry, or raise
+`SKILL_REVIEW_TIMEOUT`.
 
-```bash
-git log -1
-bash scripts/validate-skills.sh
-```
+**"Not logged in" with the `claude` backend.** Log in to Claude Code
+interactively once, or set `ANTHROPIC_API_KEY`.
 
-## 9. Troubleshooting
+**"set SKILL_REVIEW_BEDROCK_MODEL".** The Bedrock backend has no default model
+id on purpose. See option C.
 
-**"no review backend is configured"**
+**"curl is required" or "jq is required".** The three API backends need both.
+The `claude` backend needs neither.
 
-None of the four options in section 4 are set. Configure one, or accept that the
-review layer is off: the hook treats an unrunnable review as a warning and lets
-the commit proceed.
-
-**"scripts/skill-review missing or not executable, skipping review"**
-
-The script ships in the repo, so this should not happen on a normal checkout.
-Check that the file exists and its executable bit survived:
-
-```bash
-chmod +x scripts/skill-review
-```
-
-**"set SKILL_REVIEW_BEDROCK_MODEL ..."**
-
-The Bedrock backend has no default model id on purpose. List what your account
-can reach and export one:
-
-```bash
-aws bedrock list-inference-profiles
-```
-
-**"curl required" or "jq required"**
-
-The three API backends parse JSON with `jq` and call out with `curl`. Install
-both, or use the `claude` backend, which needs neither.
-
-**No review ran and the commit went straight through**
-
-The review only runs when you staged a change under `skills/`. Commits touching
-the README, docs, or scripts skip it. To exercise it:
-
-```bash
-echo "# test" >> skills/counsel/SPEC.md
-git add skills/counsel/SPEC.md
-git commit -m "test hook"
-```
-
-**Rate limits or quota**
-
-Wait for the window to reset, or switch backends for the commit:
-
-```bash
-SKILL_REVIEW_BACKEND=claude git commit -m "msg"
-```
-
-## 10. What's Next
-
-Once the hook is active:
-
-1. Work happens on a branch, and main moves only through a pull request
-2. Every commit that touches a skill runs the boundary check and the review
-3. A review that finds something blocks the commit
-4. CI re-runs the boundary check on the pull request, and that one cannot be skipped
-
----
-
-**Questions?** Check the [README](README.md) for skill descriptions, or run
-`scripts/skill-review --help` for the review tool's options.
+**A skill I believe is clean keeps failing.** Read the output: the model added
+text around the verdict, or found something real. If you set
+`SKILL_REVIEW_CLAUDE_CMD`, check that it still runs isolated from your own
+configuration.

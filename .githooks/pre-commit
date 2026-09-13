@@ -9,8 +9,8 @@
 # and cannot be skipped with --no-verify.
 #
 # The model review (.githooks/skill-review, calling scripts/skill-review) is a
-# second, optional layer on top: it reads for quality, not the boundary, and
-# skips itself with a warning when no backend is configured. See SETUP.md.
+# second, optional layer on top: it reads for quality, not the boundary, and it
+# does nothing at all unless SKILL_REVIEW_BACKEND is set. See SETUP.md.
 #
 # Enable: git config core.hooksPath .githooks
 

@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-#
-# Nothing repository-wide happens after a commit. This exists so that a
-# personal .githooks/local/post-commit gets a chance to run, which it would
-# not otherwise: core.hooksPath takes .git/hooks out of the picture entirely.
-# See .githooks/run-local.
-
-exec bash "$(git rev-parse --show-toplevel)/.githooks/run-local" post-commit "$@"

@@ -1,70 +1,89 @@
 #!/usr/bin/env bash
 #
-# Reviews one skill's docs for the things a pattern matcher cannot catch:
-# tone, voice, whether an example is really generic, whether the structure
-# holds together. scripts/validate-skills.sh guards the distribution
-# boundary; this guards quality. See SETUP.md for which one actually gates.
+# Reviews one skill for the things a pattern matcher cannot catch: tone, voice,
+# whether an example is really generic, whether the structure holds together.
+# scripts/validate-skills.sh guards the distribution boundary; this guards
+# quality. CI is the gate. This is an optional layer, and it is OFF until you
+# name a backend. See SETUP.md.
 #
-# Four backends, so no single vendor is a prerequisite for contributing:
+# Backends (SKILL_REVIEW_BACKEND, required):
 #
 #   anthropic   Claude Opus 5 on the Anthropic Messages API. ANTHROPIC_API_KEY.
-#   openrouter  Claude Opus 5 through OpenRouter, an independent reseller.
-#               OPENROUTER_API_KEY.
+#   openrouter  Claude Opus 5 through OpenRouter. OPENROUTER_API_KEY.
 #   bedrock     Claude on Amazon Bedrock through the AWS CLI. Needs
-#               SKILL_REVIEW_BEDROCK_MODEL, because the model id on Bedrock is
-#               an account and region specific inference profile that this
-#               script has no way to guess.
-#   claude      Runs the review on your own machine via `claude -p` (or
-#               SKILL_REVIEW_CLAUDE_CMD). No account here at all, no API key,
-#               nothing leaves your machine beyond whatever that CLI is already
-#               configured to talk to.
+#               SKILL_REVIEW_BEDROCK_MODEL, with no default, because on
+#               Bedrock the id is an account and region specific inference
+#               profile.
+#   claude      Your local Claude Code, run from an empty directory as
+#               `claude -p --restricted --strict-mcp-config` (or
+#               SKILL_REVIEW_CLAUDE_CMD).
 #
-# With SKILL_REVIEW_BACKEND unset, the first backend above that is actually
-# configured wins, and the script says which one it picked.
+# There is deliberately no auto-detection. An API key in your shell, or Claude
+# Code on your PATH, is not consent to a billed, blocking review of every skill
+# commit.
 #
 # Usage:
 #   skill-review <skill-dir> [label]
+#   skill-review --configured     exit 0 if a backend is named, 1 if not
 #   skill-review --help
 #
 # Env:
-#   SKILL_REVIEW_BACKEND         auto (default) | anthropic | openrouter
-#                                | bedrock | claude
+#   SKILL_REVIEW_BACKEND         anthropic | openrouter | bedrock | claude
+#   SKILL_REVIEW_TIMEOUT         seconds before a review counts as unable to
+#                                run (default 300)
 #   ANTHROPIC_API_KEY            anthropic backend
 #   OPENROUTER_API_KEY           openrouter backend
-#   SKILL_REVIEW_BEDROCK_MODEL   bedrock backend, required, no default
+#   SKILL_REVIEW_BEDROCK_MODEL   bedrock backend
 #   AWS_REGION                   bedrock backend, if your AWS profile has none
-#   SKILL_REVIEW_CLAUDE_CMD      claude backend (default: "claude -p")
+#   SKILL_REVIEW_CLAUDE_CMD      claude backend
 #
-# Every one of these can also live in .env.local, as plain KEY=value lines.
-# The environment always wins over the file.
+# Any of these can also live in .env.local as plain KEY=value lines. The
+# environment always wins over the file.
 #
-# Exit codes: 0 clean, 1 the review found issues, 2 the tool itself could
-# not run (bad input, missing dependency, network or API error).
+# Exit codes: 0 clean, 1 the review found issues, 2 the review could not run
+# (not configured, bad input, missing dependency, timeout, network or API
+# error).
 
 set -uo pipefail
+
+BACKENDS="anthropic openrouter bedrock claude"
+
+# --restricted ignores user, project and local settings files, so a
+# contributor's own hooks and plugins do not ride along, and it does not load
+# their CLAUDE.md. It also removes the tools that run commands, which is the
+# right posture for a model reading untrusted text. --strict-mcp-config with no
+# --mcp-config means no MCP servers. Together with running from an empty
+# directory, the same diff gets the same reviewer on every machine.
+#
+# Not --bare, which would isolate further: it never reads OAuth or keychain
+# credentials, so it fails with "Not logged in" for anyone on a subscription.
+DEFAULT_CLAUDE_CMD="claude -p --restricted --strict-mcp-config"
 
 usage() {
   cat <<'EOF'
 Usage: skill-review <skill-dir> [label]
+       skill-review --configured
        skill-review --help
 
-Reviews a skill folder's docs (SKILL.md, SPEC.md, CUSTOMIZE.md, README.md,
-whichever are present) for tone, voice, example quality, hidden internal
-references, strategy leaks, and structure. See SETUP.md for what it checks.
+Reviews every text file in a skill folder for tone, voice, example quality,
+hidden internal references, strategy leaks, and structure. See SETUP.md.
 
 [label] is the path the review should cite instead of <skill-dir>. The
 pre-commit hook passes one because it reviews a snapshot of the index.
 
-Backend (SKILL_REVIEW_BACKEND), default auto:
+--configured exits 0 when SKILL_REVIEW_BACKEND is set, 1 when it is not.
+
+Backend (SKILL_REVIEW_BACKEND), required, no default:
   anthropic    Claude Opus 5 on the Anthropic Messages API. ANTHROPIC_API_KEY.
   openrouter   Claude Opus 5 through OpenRouter. OPENROUTER_API_KEY.
   bedrock      Claude on Amazon Bedrock via the AWS CLI. Requires
                SKILL_REVIEW_BEDROCK_MODEL (an inference profile id).
-  claude       Local `claude -p`, or SKILL_REVIEW_CLAUDE_CMD. No API key.
+  claude       Local Claude Code, isolated from your own config. Uses your
+               existing login. Override with SKILL_REVIEW_CLAUDE_CMD.
 
-auto picks the first of those that is configured, in that order.
+SKILL_REVIEW_TIMEOUT caps each review in seconds (default 300).
 
-Exit codes: 0 clean, 1 review found issues, 2 tool error.
+Exit codes: 0 clean, 1 review found issues, 2 review could not run.
 EOF
 }
 
@@ -81,14 +100,45 @@ load_env_local() {
   root=$(git rev-parse --show-toplevel 2>/dev/null) || root="."
   env_file="$root/.env.local"
   [ -f "$env_file" ] || return 0
-  for name in ANTHROPIC_API_KEY OPENROUTER_API_KEY SKILL_REVIEW_BACKEND \
-              SKILL_REVIEW_BEDROCK_MODEL SKILL_REVIEW_CLAUDE_CMD AWS_REGION; do
+  for name in SKILL_REVIEW_BACKEND SKILL_REVIEW_TIMEOUT ANTHROPIC_API_KEY \
+              OPENROUTER_API_KEY SKILL_REVIEW_BEDROCK_MODEL AWS_REGION \
+              SKILL_REVIEW_CLAUDE_CMD; do
     [ -n "${!name:-}" ] && continue
     value=$(grep -m1 "^${name}=" "$env_file" | cut -d= -f2-)
     [ -n "$value" ] && export "$name=$value"
   done
 }
 load_env_local
+
+BACKEND="${SKILL_REVIEW_BACKEND:-}"
+
+# An unrecognised name still counts as configured here, on purpose: the typo
+# should surface as a loud "unknown backend" below, not as a review that
+# silently never runs.
+if [ "${1:-}" = "--configured" ]; then
+  [ -n "$BACKEND" ] && exit 0
+  exit 1
+fi
+
+if [ -z "$BACKEND" ]; then
+  echo "skill-review: the review is off until SKILL_REVIEW_BACKEND is set (see SETUP.md)" >&2
+  exit 2
+fi
+case " $BACKENDS " in
+  *" $BACKEND "*) ;;
+  *)
+    echo "skill-review: unknown SKILL_REVIEW_BACKEND: $BACKEND (want one of: $BACKENDS)" >&2
+    exit 2
+    ;;
+esac
+
+TIMEOUT="${SKILL_REVIEW_TIMEOUT:-300}"
+case "$TIMEOUT" in
+  ''|*[!0-9]*)
+    echo "skill-review: SKILL_REVIEW_TIMEOUT must be whole seconds, got: $TIMEOUT" >&2
+    exit 2
+    ;;
+esac
 
 SKILL_DIR="${1:-}"
 if [ -z "$SKILL_DIR" ]; then
@@ -107,20 +157,32 @@ if [ ! -d "$SKILL_DIR" ]; then
   exit 2
 fi
 
-# Not every skill folder has all four docs in the working tree at review
-# time (mid-edit, say). Review what is there.
-DOCS=()
+# Every text file in the skill, the four core docs first. Sending only those
+# four meant a change to references/ or scripts/ triggered a review that never
+# read it, and then reported the skill as passed.
+FILES=()
 for f in SKILL.md SPEC.md CUSTOMIZE.md README.md; do
-  [ -f "$SKILL_DIR/$f" ] && DOCS+=("$f")
+  [ -f "$SKILL_DIR/$f" ] && FILES+=("$f")
 done
-if [ "${#DOCS[@]}" -eq 0 ]; then
-  echo "skill-review: no SKILL.md, SPEC.md, CUSTOMIZE.md, or README.md in $SKILL_DIR" >&2
+while IFS= read -r -d '' path; do
+  rel="${path#"$SKILL_DIR"/}"
+  case "$rel" in
+    SKILL.md|SPEC.md|CUSTOMIZE.md|README.md) continue ;;
+  esac
+  # grep -I treats a file with binary content as not matching, so this keeps
+  # text and drops images, archives, and empty files alike.
+  grep -Iq . "$path" 2>/dev/null || continue
+  FILES+=("$rel")
+done < <(find "$SKILL_DIR" -type f ! -name '.*' -print0 | sort -z)
+
+if [ "${#FILES[@]}" -eq 0 ]; then
+  echo "skill-review: no text files to review in $SKILL_DIR" >&2
   exit 2
 fi
 
 INSTRUCTIONS=$(cat <<'EOF'
 You are reviewing a skill folder before it ships in a public, multi-tenant
-skill library. Read the files below and check for exactly these things:
+skill library. Read every file below and check for exactly these things:
 
 1. Tone and Voice: company names, internal references, anything that assumes
    the reader is inside one specific organization.
@@ -146,7 +208,7 @@ EOF
 )
 
 CONTENT=""
-for f in "${DOCS[@]}"; do
+for f in "${FILES[@]}"; do
   CONTENT="${CONTENT}
 --- ${LABEL}/${f} ---
 $(cat "$SKILL_DIR/$f")
@@ -159,16 +221,35 @@ need() {
   return 1
 }
 
-# Which backends could run right now. Used both to resolve `auto` and to say
-# something useful when nothing is configured.
-backend_ready() {
-  case "$1" in
-    anthropic)  [ -n "${ANTHROPIC_API_KEY:-}" ] ;;
-    openrouter) [ -n "${OPENROUTER_API_KEY:-}" ] ;;
-    bedrock)    [ -n "${SKILL_REVIEW_BEDROCK_MODEL:-}" ] && command -v aws >/dev/null 2>&1 ;;
-    claude)     command -v "$(set -- ${SKILL_REVIEW_CLAUDE_CMD:-claude -p}; echo "$1")" >/dev/null 2>&1 ;;
-    *)          return 1 ;;
-  esac
+# Portable timeout. Stock macOS has no coreutils `timeout`, and a contributor's
+# machine should not need Homebrew to get a hook that cannot hang.
+#
+# The command runs in its own process group (set -m) and the watchdog kills
+# the GROUP. Killing only the pid lets a child outlive it and hold the $(...)
+# pipe open, so the caller waits the full duration anyway even though the
+# kill "worked". <&0 is explicit because a backgrounded command in a
+# non-interactive shell otherwise gets /dev/null as stdin, and the claude
+# backend reads its prompt from stdin. The watchdog's own output goes to
+# /dev/null for the same pipe-holding reason.
+#
+# Returns 124 on timeout, the command's own status otherwise.
+with_timeout() {
+  local secs="$1"; shift
+  local pid dog rc
+  set -m
+  "$@" <&0 &
+  pid=$!
+  set +m
+  ( sleep "$secs"
+    kill -TERM -- "-$pid" 2>/dev/null
+    sleep 2
+    kill -KILL -- "-$pid" 2>/dev/null
+  ) >/dev/null 2>&1 &
+  dog=$!
+  wait "$pid" 2>/dev/null; rc=$?
+  kill "$dog" 2>/dev/null; wait "$dog" 2>/dev/null
+  if [ "$rc" -eq 143 ] || [ "$rc" -eq 137 ]; then return 124; fi
+  return "$rc"
 }
 
 run_anthropic() {
@@ -177,7 +258,7 @@ run_anthropic() {
 
   echo "Calling the Anthropic Messages API (claude-opus-5)..." >&2
 
-  local payload response err
+  local payload response err rc
   payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
     model: "claude-opus-5",
     max_tokens: 8000,
@@ -189,9 +270,18 @@ run_anthropic() {
   # to every process on the machine through `ps`.
   response=$(printf 'x-api-key: %s\nanthropic-version: 2023-06-01\nContent-Type: application/json\n' \
       "$ANTHROPIC_API_KEY" \
-    | curl -sS https://api.anthropic.com/v1/messages \
+    | curl -sS --connect-timeout 15 --max-time "$TIMEOUT" \
+      https://api.anthropic.com/v1/messages \
       -H @- \
-      -d "$payload") || { echo "skill-review: Anthropic request failed" >&2; return 2; }
+      -d "$payload"); rc=$?
+  if [ "$rc" -eq 28 ]; then
+    echo "skill-review: Anthropic request timed out after ${TIMEOUT}s" >&2
+    return 2
+  fi
+  if [ "$rc" -ne 0 ]; then
+    echo "skill-review: Anthropic request failed (curl exit $rc)" >&2
+    return 2
+  fi
 
   err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
   if [ -n "$err" ]; then
@@ -208,7 +298,7 @@ run_openrouter() {
 
   echo "Calling OpenRouter (anthropic/claude-opus-5)..." >&2
 
-  local payload response err
+  local payload response err rc
   payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
     model: "anthropic/claude-opus-5",
     messages: [
@@ -220,9 +310,18 @@ run_openrouter() {
   # See the note in run_anthropic: the key goes over stdin, never argv.
   response=$(printf 'Authorization: Bearer %s\nContent-Type: application/json\n' \
       "$OPENROUTER_API_KEY" \
-    | curl -sS https://openrouter.ai/api/v1/chat/completions \
+    | curl -sS --connect-timeout 15 --max-time "$TIMEOUT" \
+      https://openrouter.ai/api/v1/chat/completions \
       -H @- \
-      -d "$payload") || { echo "skill-review: OpenRouter request failed" >&2; return 2; }
+      -d "$payload"); rc=$?
+  if [ "$rc" -eq 28 ]; then
+    echo "skill-review: OpenRouter request timed out after ${TIMEOUT}s" >&2
+    return 2
+  fi
+  if [ "$rc" -ne 0 ]; then
+    echo "skill-review: OpenRouter request failed (curl exit $rc)" >&2
+    return 2
+  fi
 
   err=$(printf '%s' "$response" | jq -r '.error.message // empty' 2>/dev/null)
   if [ -n "$err" ]; then
@@ -250,57 +349,65 @@ run_bedrock() {
   # An empty array expanded plainly is an unbound variable under `set -u` on
   # bash 3.2, which is what macOS ships. The +"..." guard expands to nothing
   # when AWS_REGION is unset and to the two words when it is set.
-  local messages system out region=()
+  local messages system out rc errfile region=()
   [ -n "${AWS_REGION:-}" ] && region=(--region "$AWS_REGION")
   messages=$(jq -n --arg user "$CONTENT" '[{role: "user", content: [{text: $user}]}]')
   system=$(jq -n --arg sys "$INSTRUCTIONS" '[{text: $sys}]')
 
-  out=$(aws bedrock-runtime converse \
+  # stderr goes to its own file. Captured together with stdout, any CLI
+  # warning on a successful call landed in front of the JSON and broke the
+  # parse, so a working review read as one that could not run.
+  errfile=$(mktemp) || { echo "skill-review: could not create a temp file" >&2; return 2; }
+  out=$(aws --cli-connect-timeout 15 --cli-read-timeout "$TIMEOUT" \
+    bedrock-runtime converse \
     ${region[@]+"${region[@]}"} \
     --model-id "$SKILL_REVIEW_BEDROCK_MODEL" \
     --messages "$messages" \
     --system "$system" \
-    --output json 2>&1) || {
-      echo "skill-review: Bedrock request failed" >&2
-      echo "$out" >&2
-      return 2
-    }
+    --output json 2>"$errfile"); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "skill-review: Bedrock request failed (aws exit $rc)" >&2
+    cat "$errfile" >&2
+    rm -f "$errfile"
+    return 2
+  fi
+  rm -f "$errfile"
 
   printf '%s' "$out" | jq -r '[.output.message.content[]? | .text // empty] | join("")'
 }
 
 run_claude() {
-  local cmd="${SKILL_REVIEW_CLAUDE_CMD:-claude -p}"
+  local cmd="${SKILL_REVIEW_CLAUDE_CMD:-$DEFAULT_CLAUDE_CMD}"
   need "${cmd%% *}" claude || return 2
+
+  # An empty working directory, so no CLAUDE.md in or above the clone is
+  # discovered. See DEFAULT_CLAUDE_CMD for what the flags exclude.
+  local sandbox out rc
+  sandbox=$(mktemp -d) || { echo "skill-review: could not create a temp directory" >&2; return 2; }
+
   echo "Running the review locally via $cmd..." >&2
-  printf '%s\n\n%s' "$INSTRUCTIONS" "$CONTENT" | $cmd
-}
+  # $cmd is unquoted on purpose: it is a command line and has to word-split.
+  out=$(cd "$sandbox" \
+    && printf '%s\n\n%s' "$INSTRUCTIONS" "$CONTENT" | with_timeout "$TIMEOUT" $cmd); rc=$?
+  rm -rf "$sandbox"
 
-BACKEND="${SKILL_REVIEW_BACKEND:-auto}"
-
-if [ "$BACKEND" = "auto" ]; then
-  for candidate in anthropic openrouter bedrock claude; do
-    if backend_ready "$candidate"; then BACKEND="$candidate"; break; fi
-  done
-  if [ "$BACKEND" = "auto" ]; then
-    echo "skill-review: no review backend is configured. Set one of" >&2
-    echo "  ANTHROPIC_API_KEY, OPENROUTER_API_KEY, SKILL_REVIEW_BEDROCK_MODEL," >&2
-    echo "  or put a 'claude' command on your PATH. See SETUP.md." >&2
-    exit 2
+  if [ "$rc" -eq 124 ]; then
+    echo "skill-review: $cmd timed out after ${TIMEOUT}s" >&2
+    return 2
   fi
-  echo "Backend: $BACKEND (auto). Pin it with SKILL_REVIEW_BACKEND." >&2
-fi
+  if [ "$rc" -ne 0 ]; then
+    [ -n "$out" ] && printf '%s\n' "$out" >&2
+    echo "skill-review: $cmd exited $rc" >&2
+    return 2
+  fi
+  printf '%s' "$out"
+}
 
 case "$BACKEND" in
   anthropic)  OUTPUT=$(run_anthropic); STATUS=$? ;;
   openrouter) OUTPUT=$(run_openrouter); STATUS=$? ;;
   bedrock)    OUTPUT=$(run_bedrock); STATUS=$? ;;
   claude)     OUTPUT=$(run_claude); STATUS=$? ;;
-  *)
-    echo "skill-review: unknown SKILL_REVIEW_BACKEND: $BACKEND" >&2
-    echo "Want one of: auto, anthropic, openrouter, bedrock, claude." >&2
-    exit 2
-    ;;
 esac
 
 if [ "$STATUS" -ne 0 ] || [ -z "$OUTPUT" ]; then

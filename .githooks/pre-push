@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Refuses a push that would update main directly. This is the half of the
+# pull request rule that the commit guard in pre-commit cannot see:
+# `git push origin HEAD:main` from a feature branch never commits on main
+# locally, so pre-commit never fires for it.
+#
+# Where server-side branch protection is not in place, this is the nearest
+# substitute, and like every hook here it only applies once core.hooksPath
+# points at .githooks.
+#
+# Same escape hatch as the commit guard: git config stelliad.allowMainCommits true
+#
+# git feeds one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+
+set -uo pipefail
+
+ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
+[ "$ALLOW" = "true" ] && exit 0
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "Refusing to push to main. Changes land through a pull request."
+    echo
+    echo "  git push -u origin your-branch-name && gh pr create"
+    echo
+    echo "If you really mean to push to main:"
+    echo "  git config stelliad.allowMainCommits true   # persistent, per clone"
+    echo "  git push --no-verify ...                    # just this once"
+    exit 1
+  fi
+done
+
+exit 0
