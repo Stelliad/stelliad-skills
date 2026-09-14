@@ -510,7 +510,7 @@ run_claude() {
 
   # An empty working directory, so no CLAUDE.md in or above the clone is
   # discovered. See DEFAULT_CLAUDE_CMD for what the flags exclude.
-  local sandbox="$WORK/sandbox" prompt="$WORK/prompt" out rc
+  local sandbox="$WORK/sandbox" prompt="$WORK/prompt" claude_out="$WORK/claude-output" out rc savedpwd
   mkdir "$sandbox" || { echo "skill-review: could not create a temp directory" >&2; return 2; }
 
   # The prompt goes in from a file, not a pipe. Under pipefail, a backend that
@@ -535,8 +535,19 @@ run_claude() {
   fi
 
   echo "Running the review locally via $cmd..." >&2
-  out=$(cd "$sandbox" && with_timeout "$TIMEOUT" "$@" < "$prompt"); rc=$?
-  rm -rf "$sandbox" "$prompt"
+  # No `$(...)` or `(...)` between here and with_timeout's own `wait "$pid"`:
+  # either kind of subshell wrapping a background-and-wait defeats prompt
+  # signal delivery to this script's INT/TERM traps. A Ctrl-C during a hung
+  # review then does not fire the trap until the reviewer finishes on its
+  # own, however long that takes, which defeats the timeout entirely from
+  # the contributor's point of view. cd/cd-back replaces the `cd "$sandbox"
+  # &&` subshell, and a temp file replaces `$(...)` for capturing output.
+  savedpwd="$PWD"
+  cd "$sandbox" || { echo "skill-review: could not enter the sandbox" >&2; return 2; }
+  with_timeout "$TIMEOUT" "$@" < "$prompt" > "$claude_out"; rc=$?
+  cd "$savedpwd" || true
+  out=$(cat "$claude_out" 2>/dev/null)
+  rm -rf "$sandbox" "$prompt" "$claude_out"
 
   if [ "$rc" -eq 124 ]; then
     echo "skill-review: $cmd timed out after ${TIMEOUT}s" >&2
@@ -556,7 +567,16 @@ case "$BACKEND" in
   anthropic)  OUTPUT=$(run_anthropic); STATUS=$? ;;
   openrouter) OUTPUT=$(run_openrouter); STATUS=$? ;;
   bedrock)    OUTPUT=$(run_bedrock); STATUS=$? ;;
-  claude)     OUTPUT=$(run_claude); STATUS=$? ;;
+  # Not `OUTPUT=$(run_claude)`: that alone reintroduces the same deferred-
+  # signal problem `run_claude` just avoided internally, since it wraps the
+  # whole call (background-and-wait included) in a subshell of its own. See
+  # the comment above with_timeout's call inside run_claude.
+  claude)
+    RUN_CLAUDE_OUT="$WORK/run-claude-output"
+    run_claude > "$RUN_CLAUDE_OUT"; STATUS=$?
+    OUTPUT=$(cat "$RUN_CLAUDE_OUT" 2>/dev/null)
+    rm -f "$RUN_CLAUDE_OUT"
+    ;;
 esac
 
 # A backend that cannot run until something changes keeps its own status.
