@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# Refuses a push that would update main directly. This is the half of the
+# pull request rule that the commit guard in pre-commit cannot see:
+# `git push origin HEAD:main` from a feature branch never commits on main
+# locally, so pre-commit never fires for it.
+#
+# Where server-side branch protection is not in place, this is the nearest
+# substitute, and like every hook here it only applies once core.hooksPath
+# points at .githooks.
+#
+# Same escape hatch as the commit guard: git config stelliad.allowMainCommits true
+#
+# git feeds one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# and the remote's name as $1 and its URL as $2.
+
+set -uo pipefail
+
+ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
+[ "$ALLOW" = "true" ] && exit 0
+
+# Only this repository's main is protected here. Without the check, the guard
+# also refused the ordinary fork flow: a contributor syncing their own fork's
+# main got a message about pull requests that does not apply to their remote,
+# and the only ways past it disabled the guard against this repo too.
+#
+# Compared lowercased, without a trailing slash or .git: GitHub treats
+# github.com/stelliad/stelliad-skills as this repository, so a case-sensitive
+# match let that spelling of the URL push to main unchecked.
+REMOTE_URL=$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')
+REMOTE_URL="${REMOTE_URL%/}"
+REMOTE_URL="${REMOTE_URL%.git}"
+case "$REMOTE_URL" in
+  *[:/]stelliad/stelliad-skills) ;;
+  *) exit 0 ;;
+esac
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "Refusing to push to main. Changes land through a pull request."
+    echo
+    echo "  git push -u origin your-branch-name && gh pr create"
+    echo
+    echo "If you really mean to push to main:"
+    echo "  git config stelliad.allowMainCommits true   # persistent, per clone"
+    echo "  git push --no-verify ...                    # just this once, but it skips"
+    echo "                                              # every other pre-push check too"
+    exit 1
+  fi
+done
+
+exit 0

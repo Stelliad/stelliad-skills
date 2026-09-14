@@ -1,90 +1,128 @@
-#!/bin/bash
-# Pre-commit hook: Run skill-review on all changed skills
-# Blocks commit if any skill fails review
-# Override with: git commit --no-verify
+#!/usr/bin/env bash
+#
+# Pre-commit hook: run scripts/skill-review on every skill with staged changes.
+#
+# Does nothing at all unless SKILL_REVIEW_BACKEND is set, in the environment or
+# in .env.local. When it is set, a review that found something blocks the
+# commit, and a review that could not run (timeout, network, credentials) warns
+# and lets the commit through: trouble on your own machine should never be the
+# reason --no-verify starts feeling routine.
+#
+# The backends and their config live in scripts/skill-review; see SETUP.md.
 
-set -e
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# Every skill in the repository, derived rather than listed. A hardcoded array
-# goes stale the first time a skill is added and nobody notices, because the
-# symptom is a skill silently not being reviewed.
-SKILLS=()
-for d in */; do
-  d="${d%/}"
-  case "$d" in .*|scripts) continue ;; esac
-  [ -f "$d/SKILL.md" ] && SKILLS+=("$d")
-done
+# Run through bash, the way pre-commit runs this hook, so nothing depends on
+# the exec bit. Checking -x here turned a lost bit (a zip download, a clone
+# with core.fileMode off) into a review that silently never ran.
+TOOL="scripts/skill-review"
+[ -f "$TOOL" ] || exit 0
 
-# Get staged files
-STAGED=$(git diff --cached --name-only)
+# Opt-in, and silent when not opted into. Claude Code on your PATH or an API
+# key in your shell is not a request for a blocking review.
+bash "$TOOL" --configured || exit 0
 
-# Find which skills have changes
+# Every skill with a staged change, derived rather than listed: a hardcoded
+# array goes stale the first time a skill is added, and the symptom is a skill
+# silently not being reviewed. Skills live under skills/, where the plugin
+# runtime looks for them.
+#
+# Ask git per skill rather than piping the whole staged list through grep.
+# Under pipefail, `grep -q` exits at its first match and the writer takes
+# SIGPIPE once the list outgrows the pipe buffer, which reads as "unchanged".
+# `git diff --quiet` exits 1 when the path has staged changes.
 CHANGED_SKILLS=()
-for skill in "${SKILLS[@]}"; do
-  if echo "$STAGED" | grep -q "^$skill/"; then
-    CHANGED_SKILLS+=("$skill")
-  fi
+for d in skills/*/; do
+  d="${d%/}"
+  [ -f "$d/SKILL.md" ] || continue
+  git diff --cached --quiet -- "$d" || CHANGED_SKILLS+=("$d")
 done
 
-# If no skills changed, pass
-if [ ${#CHANGED_SKILLS[@]} -eq 0 ]; then
+if [ "${#CHANGED_SKILLS[@]}" -eq 0 ]; then
   exit 0
 fi
 
-echo "🔍 Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
-
-# Check if skill-review is available in PATH
-# This repository does not ship the skill-review command. Without it there is
-# nothing to run, and failing the commit would block every contributor on a
-# tool they were never given. Skip, and say so.
-if ! command -v skill-review &> /dev/null; then
-  echo "⚠️  skill-review not on PATH, skipping review (see SETUP.md)"
-  exit 0
+# Review what is about to be committed, not what happens to be on disk.
+# scripts/validate-skills.sh already reads --from-index; the review did not,
+# so with a partially staged file the model read text that was never going in.
+# checkout-index writes the index content into a scratch tree, and the real
+# path is passed through as a label so findings stay actionable.
+SNAP=$(mktemp -d 2>/dev/null) || SNAP=""
+if [ -n "$SNAP" ]; then
+  trap 'rm -rf "$SNAP"' EXIT INT TERM
 fi
 
-# Check if the API key is set
-if [ -z "${OPENROUTER_API_KEY}" ]; then
-  # Try to load from .env.local
-  if [ -f ".env.local" ]; then
-    export $(grep OPENROUTER_API_KEY ".env.local" | xargs)
+snapshot_of() {
+  # Echoes a directory holding the indexed copy of $1, or $1 itself if the
+  # snapshot could not be made. Falling back to the working tree is worse than
+  # the snapshot and better than not reviewing at all, but it is not what
+  # SETUP.md promises, so it says so on stderr rather than happening quietly.
+  local skill="$1"
+  if [ -n "$SNAP" ] \
+     && git ls-files -z -- "$skill" | xargs -0 git checkout-index --prefix="$SNAP/" -- 2>/dev/null \
+     && [ -d "$SNAP/$skill" ]; then
+    echo "$SNAP/$skill"
+  else
+    echo "warning: could not snapshot the staged copy of $skill, reviewing the working tree instead" >&2
+    echo "$skill"
   fi
-fi
+}
 
-if [ -z "${OPENROUTER_API_KEY}" ]; then
-  echo "⚠️  OPENROUTER_API_KEY not set"
-  echo "Set it in .env.local or export OPENROUTER_API_KEY=your-key"
-  echo "Skipping review (use --no-verify to bypass hook)"
-  exit 0
-fi
+echo "Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
 
-# Review each changed skill
 FAILED=0
+PASSED=0
+SKIPPED=0
+MISCONFIGURED=0
 for skill in "${CHANGED_SKILLS[@]}"; do
   echo ""
-  echo "📋 Reviewing $skill..."
+  echo "Reviewing $skill..."
 
-  # Run skill-review and capture output
-  if OUTPUT=$(skill-review "$skill" 2>&1); then
-    # Check if review passed (no major issues)
-    if echo "$OUTPUT" | grep -q "✅ Clean\|Ready for distribution"; then
-      echo "✅ $skill passed review"
-    else
-      echo "⚠️  $skill review complete (check output above)"
-    fi
-  else
-    echo "❌ $skill review failed"
+  REVIEW_DIR=$(snapshot_of "$skill")
+  if OUTPUT=$(bash "$TOOL" "$REVIEW_DIR" "$skill" 2>&1); then
     echo "$OUTPUT"
-    FAILED=$((FAILED + 1))
+    echo "$skill passed review"
+    PASSED=$((PASSED + 1))
+  else
+    STATUS=$?
+    echo "$OUTPUT"
+    if [ "$STATUS" -eq 1 ]; then
+      echo "$skill review failed"
+      FAILED=$((FAILED + 1))
+    elif [ "$STATUS" -eq 3 ]; then
+      # Not a blip. A typo'd backend name, a key that was never set, or a skill
+      # too long for the output limit fails the same way on the next commit and
+      # every one after, so waving it through means the review never runs again
+      # and says so once.
+      echo "$skill: the review cannot run until something changes"
+      MISCONFIGURED=$((MISCONFIGURED + 1))
+    else
+      echo "review could not run for $skill, skipping (see SETUP.md)"
+      SKIPPED=$((SKIPPED + 1))
+    fi
   fi
 done
 
-if [ $FAILED -gt 0 ]; then
+if [ "$MISCONFIGURED" -gt 0 ]; then
   echo ""
-  echo "❌ $FAILED skill(s) failed review. Fix issues and try again."
+  echo "The review is configured but cannot run: see the message above."
+  echo "Fix it, unset SKILL_REVIEW_BACKEND to turn the review off, or commit"
+  echo "with --no-verify, which also skips the boundary check."
+  exit 1
+fi
+
+if [ "$FAILED" -gt 0 ]; then
+  echo ""
+  echo "$FAILED skill(s) failed review. Fix the findings and commit again."
   echo "Override with: git commit --no-verify (not recommended)"
   exit 1
 fi
 
 echo ""
-echo "✅ All skills passed review. Committing..."
+if [ "$PASSED" -gt 0 ]; then
+  echo "$PASSED skill(s) passed review, $SKIPPED skipped."
+else
+  echo "No skill was actually reviewed ($SKIPPED skipped). See SETUP.md."
+fi
 exit 0
