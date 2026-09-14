@@ -74,6 +74,7 @@ echo "Reviewing ${#CHANGED_SKILLS[@]} skill(s) before commit..."
 FAILED=0
 PASSED=0
 SKIPPED=0
+MISCONFIGURED=0
 for skill in "${CHANGED_SKILLS[@]}"; do
   echo ""
   echo "Reviewing $skill..."
@@ -89,12 +90,26 @@ for skill in "${CHANGED_SKILLS[@]}"; do
     if [ "$STATUS" -eq 1 ]; then
       echo "$skill review failed"
       FAILED=$((FAILED + 1))
+    elif [ "$STATUS" -eq 3 ]; then
+      # Misconfiguration, not a blip. A typo'd backend name or a key that was
+      # never set will still be wrong on the next commit and every one after,
+      # so waving it through means the review never runs again and says so once.
+      echo "$skill: the review is misconfigured"
+      MISCONFIGURED=$((MISCONFIGURED + 1))
     else
       echo "review could not run for $skill, skipping (see SETUP.md)"
       SKIPPED=$((SKIPPED + 1))
     fi
   fi
 done
+
+if [ "$MISCONFIGURED" -gt 0 ]; then
+  echo ""
+  echo "The review is configured but cannot run: see the message above."
+  echo "Fix it, unset SKILL_REVIEW_BACKEND to turn the review off, or commit"
+  echo "with --no-verify, which also skips the boundary check."
+  exit 1
+fi
 
 if [ "$FAILED" -gt 0 ]; then
   echo ""

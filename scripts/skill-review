@@ -41,10 +41,18 @@
 # quoted or prefixed with `export`. The environment always wins over the file.
 #
 # Exit codes: 0 clean, 1 the review found issues, 2 the review could not run
-# (not configured, bad input, missing dependency, timeout, network or API
-# error).
+# this time (timeout, network or API error), 3 the review is misconfigured and
+# will not run until something changes (unknown backend, missing key, missing
+# dependency, bad timeout value). The hook warns on 2 and blocks on 3.
 
 set -uo pipefail
+
+# Every temp path this script creates, removed on any exit including Ctrl-C.
+# Without this an interrupted review left the prompt file, which holds the whole
+# skill text, sitting in the temp directory.
+TMP_PATHS=()
+cleanup_tmp() { rm -rf ${TMP_PATHS[@]+"${TMP_PATHS[@]}"}; }
+trap cleanup_tmp EXIT INT TERM
 
 BACKENDS="anthropic openrouter bedrock claude"
 
@@ -57,7 +65,7 @@ BACKENDS="anthropic openrouter bedrock claude"
 #
 # Not --bare, which would isolate further: it never reads OAuth or keychain
 # credentials, so it fails with "Not logged in" for anyone on a subscription.
-DEFAULT_CLAUDE_CMD="claude -p --restricted --strict-mcp-config"
+DEFAULT_CLAUDE_CMD="claude -p --restricted --strict-mcp-config --model claude-opus-5"
 
 usage() {
   cat <<'EOF'
@@ -83,7 +91,8 @@ Backend (SKILL_REVIEW_BACKEND), required, no default:
 
 SKILL_REVIEW_TIMEOUT caps each review in seconds (default 300).
 
-Exit codes: 0 clean, 1 review found issues, 2 review could not run.
+Exit codes: 0 clean, 1 review found issues, 2 could not run this time,
+3 misconfigured (the hook blocks on this one).
 EOF
 }
 
@@ -111,9 +120,14 @@ load_env_local() {
     [ -n "${!name:-}" ] && continue
     value=$(grep -m1 -E "^[[:space:]]*(export[[:space:]]+)?${name}=" "$env_file" | cut -d= -f2-)
     value="${value%$'\r'}"
+    # A quoted value keeps whatever is inside the quotes and drops the rest of
+    # the line. An unquoted one loses a trailing ` # comment` and any trailing
+    # whitespace, both of which are ordinary in a dotenv file and both of which
+    # used to travel into the value and fail later as a bad key or a bad number.
     case "$value" in
-      \"*\") value="${value#\"}"; value="${value%\"}" ;;
-      \'*\') value="${value#\'}"; value="${value%\'}" ;;
+      \"*) value=$(printf '%s' "$value" | sed -e 's/^"//' -e 's/".*$//') ;;
+      \'*) value=$(printf '%s' "$value" | sed -e "s/^'//" -e "s/'.*\$//") ;;
+      *)   value=$(printf '%s' "$value" | sed -e 's/[[:space:]]#.*$//' -e 's/[[:space:]]*$//') ;;
     esac
     [ -n "$value" ] && export "$name=$value"
   done
@@ -138,15 +152,18 @@ case " $BACKENDS " in
   *" $BACKEND "*) ;;
   *)
     echo "skill-review: unknown SKILL_REVIEW_BACKEND: $BACKEND (want one of: $BACKENDS)" >&2
-    exit 2
+    exit 3
     ;;
 esac
 
 TIMEOUT="${SKILL_REVIEW_TIMEOUT:-300}"
 case "$TIMEOUT" in
-  ''|*[!0-9]*)
-    echo "skill-review: SKILL_REVIEW_TIMEOUT must be whole seconds, got: $TIMEOUT" >&2
-    exit 2
+  ''|*[!0-9]*|0|0[0-9]*)
+    # Zero is rejected, not just non-numbers: `curl --max-time 0` means no
+    # limit at all, while the watchdog's `sleep 0` kills instantly, so one
+    # value would hang the commit and wave the next one through.
+    echo "skill-review: SKILL_REVIEW_TIMEOUT must be a positive whole number of seconds, got: $TIMEOUT" >&2
+    exit 3
     ;;
 esac
 
@@ -167,10 +184,14 @@ if [ ! -d "$SKILL_DIR" ]; then
   exit 2
 fi
 
-# Every text file in the skill, the four core docs first. Sending only those
+# Every text file in the skill, the four core docs first, dot-directories left
+# out: a skills/<name>/.config or .claude folder is not review material and
+# `! -name '.*'` only ever excluded dot-FILES, so their contents were uploaded.
+# Sending only those
 # four meant a change to references/ or scripts/ triggered a review that never
 # read it, and then reported the skill as passed.
 FILES=()
+SKIPPED=()
 for f in SKILL.md SPEC.md CUSTOMIZE.md README.md; do
   [ -f "$SKILL_DIR/$f" ] && FILES+=("$f")
 done
@@ -181,13 +202,19 @@ while IFS= read -r -d '' path; do
   esac
   # grep -I treats a file with binary content as not matching, so this keeps
   # text and drops images, archives, and empty files alike.
-  grep -Iq . "$path" 2>/dev/null || continue
+  grep -Iq . "$path" 2>/dev/null || { SKIPPED+=("$rel"); continue; }
   FILES+=("$rel")
-done < <(find "$SKILL_DIR" -type f ! -name '.*' -print0 | sort -z)
+done < <(find "$SKILL_DIR" -path '*/.*' -prune -o -type f -print0 | sort -z)
 
 if [ "${#FILES[@]}" -eq 0 ]; then
   echo "skill-review: no text files to review in $SKILL_DIR" >&2
   exit 2
+fi
+
+# Naming what was left out, because "reviewed" over a partial file list is the
+# same silent pass this layer exists to prevent.
+if [ "${#SKIPPED[@]}" -gt 0 ]; then
+  echo "skill-review: skipped ${#SKIPPED[@]} non-text file(s): ${SKIPPED[*]}" >&2
 fi
 
 INSTRUCTIONS=$(cat <<'EOF'
@@ -231,7 +258,7 @@ done
 need() {
   command -v "$1" >/dev/null 2>&1 && return 0
   echo "skill-review: $1 is required for the $2 backend" >&2
-  return 1
+  return 1  # callers turn this into exit 3: a missing tool never fixes itself
 }
 
 # Portable timeout. Stock macOS has no coreutils `timeout`, and a contributor's
@@ -248,32 +275,40 @@ need() {
 # Returns 124 on timeout, the command's own status otherwise.
 with_timeout() {
   local secs="$1"; shift
-  local pid dog rc
+  local pid dog rc flag
+  # The watchdog records that it fired. Inferring a timeout from exit 143 or 137
+  # blamed the clock for any command that died of a signal on its own.
+  flag=$(mktemp) || { echo "skill-review: could not create a temp file" >&2; return 2; }
+  TMP_PATHS+=("$flag")
   set -m
   "$@" <&0 &
   pid=$!
-  set +m
+  # The watchdog is its own process group too, so killing it takes its `sleep`
+  # with it. Killing the subshell alone orphaned one sleep per review.
   ( sleep "$secs"
+    printf t > "$flag"
     kill -TERM -- "-$pid" 2>/dev/null
     sleep 2
     kill -KILL -- "-$pid" 2>/dev/null
   ) >/dev/null 2>&1 &
   dog=$!
+  set +m
   wait "$pid" 2>/dev/null; rc=$?
-  kill "$dog" 2>/dev/null; wait "$dog" 2>/dev/null
-  if [ "$rc" -eq 143 ] || [ "$rc" -eq 137 ]; then return 124; fi
+  kill -TERM -- "-$dog" 2>/dev/null; wait "$dog" 2>/dev/null
+  if [ -s "$flag" ]; then rc=124; fi
+  : > "$flag"
   return "$rc"
 }
 
 run_anthropic() {
-  need curl anthropic || return 2
-  need jq anthropic || return 2
+  need curl anthropic || return 3
+  need jq anthropic || return 3
 
   # Checked here, not left to the header printf: under `set -u` an unset key
   # killed that printf, and curl was then blamed for a request it never sent.
   if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
     echo "skill-review: set ANTHROPIC_API_KEY for the anthropic backend (see SETUP.md)" >&2
-    return 2
+    return 3
   fi
 
   echo "Calling the Anthropic Messages API (claude-opus-5)..." >&2
@@ -281,7 +316,7 @@ run_anthropic() {
   local payload response err rc
   payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
     model: "claude-opus-5",
-    max_tokens: 8000,
+    max_tokens: 16000,
     system: $sys,
     messages: [{role: "user", content: $user}]
   }')
@@ -309,17 +344,26 @@ run_anthropic() {
     return 2
   fi
 
+  # A truncated review is not a verdict. Opus 5 thinks by default and that
+  # counts against max_tokens, so a long skill can burn the budget before any
+  # text block is emitted: the join below then returns nothing, the caller reads
+  # it as "could not run", and the commit sails through.
+  if [ "$(printf '%s' "$response" | jq -r '.stop_reason // empty' 2>/dev/null)" = "max_tokens" ]; then
+    echo "skill-review: the response hit max_tokens and came back truncated" >&2
+    return 2
+  fi
+
   printf '%s' "$response" | jq -r '[.content[]? | select(.type == "text") | .text] | join("")'
 }
 
 run_openrouter() {
-  need curl openrouter || return 2
-  need jq openrouter || return 2
+  need curl openrouter || return 3
+  need jq openrouter || return 3
 
   # See the key check in run_anthropic.
   if [ -z "${OPENROUTER_API_KEY:-}" ]; then
     echo "skill-review: set OPENROUTER_API_KEY for the openrouter backend (see SETUP.md)" >&2
-    return 2
+    return 3
   fi
 
   echo "Calling OpenRouter (anthropic/claude-opus-5)..." >&2
@@ -327,6 +371,7 @@ run_openrouter() {
   local payload response err rc
   payload=$(jq -n --arg sys "$INSTRUCTIONS" --arg user "$CONTENT" '{
     model: "anthropic/claude-opus-5",
+    max_tokens: 16000,
     messages: [
       {role: "system", content: $sys},
       {role: "user", content: $user}
@@ -355,6 +400,15 @@ run_openrouter() {
     return 2
   fi
 
+  # A truncated review is not a verdict. Opus 5 thinks by default and that
+  # counts against max_tokens, so a long skill can burn the budget before any
+  # text block is emitted: the join below then returns nothing, the caller reads
+  # it as "could not run", and the commit sails through.
+  if [ "$(printf '%s' "$response" | jq -r '.choices[0].finish_reason // empty' 2>/dev/null)" = "length" ]; then
+    echo "skill-review: the response hit max_tokens and came back truncated" >&2
+    return 2
+  fi
+
   printf '%s' "$response" | jq -r '.choices[0].message.content // empty'
 }
 
@@ -362,12 +416,12 @@ run_openrouter() {
 # is a liability, and anyone with Bedrock access already has the CLI and its
 # credential chain configured.
 run_bedrock() {
-  need aws bedrock || return 2
-  need jq bedrock || return 2
+  need aws bedrock || return 3
+  need jq bedrock || return 3
 
   if [ -z "${SKILL_REVIEW_BEDROCK_MODEL:-}" ]; then
     echo "skill-review: set SKILL_REVIEW_BEDROCK_MODEL to the inference profile id for your account and region (see SETUP.md)" >&2
-    return 2
+    return 3
   fi
 
   echo "Calling Bedrock ($SKILL_REVIEW_BEDROCK_MODEL)..." >&2
@@ -384,12 +438,14 @@ run_bedrock() {
   # warning on a successful call landed in front of the JSON and broke the
   # parse, so a working review read as one that could not run.
   errfile=$(mktemp) || { echo "skill-review: could not create a temp file" >&2; return 2; }
+  TMP_PATHS+=("$errfile")
   out=$(aws --cli-connect-timeout 15 --cli-read-timeout "$TIMEOUT" \
     bedrock-runtime converse \
     ${region[@]+"${region[@]}"} \
     --model-id "$SKILL_REVIEW_BEDROCK_MODEL" \
     --messages "$messages" \
     --system "$system" \
+    --inference-config maxTokens=16000 \
     --output json 2>"$errfile"); rc=$?
   if [ "$rc" -ne 0 ]; then
     echo "skill-review: Bedrock request failed (aws exit $rc)" >&2
@@ -398,6 +454,15 @@ run_bedrock() {
     return 2
   fi
   rm -f "$errfile"
+
+  # A truncated review is not a verdict. Opus 5 thinks by default and that
+  # counts against max_tokens, so a long skill can burn the budget before any
+  # text block is emitted: the join below then returns nothing, the caller reads
+  # it as "could not run", and the commit sails through.
+  if [ "$(printf '%s' "$out" | jq -r '.stopReason // empty' 2>/dev/null)" = "max_tokens" ]; then
+    echo "skill-review: the response hit max_tokens and came back truncated" >&2
+    return 2
+  fi
 
   printf '%s' "$out" | jq -r '[.output.message.content[]? | .text // empty] | join("")'
 }
@@ -410,6 +475,7 @@ run_claude() {
   # discovered. See DEFAULT_CLAUDE_CMD for what the flags exclude.
   local sandbox prompt out rc
   sandbox=$(mktemp -d) || { echo "skill-review: could not create a temp directory" >&2; return 2; }
+  TMP_PATHS+=("$sandbox")
 
   # The prompt goes in from a file, not a pipe. Under pipefail, a backend that
   # printed its verdict and exited without reading all of stdin killed the
@@ -417,6 +483,7 @@ run_claude() {
   # A redirect has no writer to kill. The file sits beside the sandbox, not in
   # it, so the sandbox stays empty.
   prompt=$(mktemp) || { rm -rf "$sandbox"; echo "skill-review: could not create a temp file" >&2; return 2; }
+  TMP_PATHS+=("$prompt")
 
   # The default command gets the instructions as its system prompt and only
   # the skill text on stdin, the same split the API backends make, so a file
@@ -455,6 +522,14 @@ case "$BACKEND" in
   bedrock)    OUTPUT=$(run_bedrock); STATUS=$? ;;
   claude)     OUTPUT=$(run_claude); STATUS=$? ;;
 esac
+
+# A misconfigured backend keeps its own status. Collapsing everything non-zero
+# into 2 told the hook that a missing key was a passing network blip, and the
+# commit went through with no review, every time, forever.
+if [ "$STATUS" -eq 3 ]; then
+  [ -n "${OUTPUT:-}" ] && echo "$OUTPUT" >&2
+  exit 3
+fi
 
 if [ "$STATUS" -ne 0 ] || [ -z "$OUTPUT" ]; then
   [ -n "${OUTPUT:-}" ] && echo "$OUTPUT" >&2

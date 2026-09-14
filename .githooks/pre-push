@@ -13,11 +13,22 @@
 #
 # git feeds one line per ref being pushed:
 #   <local ref> <local sha> <remote ref> <remote sha>
+# and the remote's name as $1 and its URL as $2.
 
 set -uo pipefail
 
 ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
 [ "$ALLOW" = "true" ] && exit 0
+
+# Only this repository's main is protected here. Without the check, the guard
+# also refused the ordinary fork flow: a contributor syncing their own fork's
+# main got a message about pull requests that does not apply to their remote,
+# and the only ways past it disabled the guard against this repo too.
+REMOTE_URL="${2:-}"
+case "$REMOTE_URL" in
+  *[:/]Stelliad/stelliad-skills|*[:/]Stelliad/stelliad-skills.git) ;;
+  *) exit 0 ;;
+esac
 
 while read -r _local_ref _local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/main" ]; then

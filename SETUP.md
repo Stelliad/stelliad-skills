@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-13 19:08**
+**Last Updated: 2026-09-14 10:07**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -51,7 +51,7 @@ git config core.hooksPath .githooks
 | Hook | What it does |
 |---|---|
 | `pre-commit` | Refuses a commit made directly on main, runs the boundary check, then the model review if you turned it on |
-| `pre-push` | Refuses a push that would update main |
+| `pre-push` | Refuses a push that would update this repository's main. A fork's own main is left alone |
 
 **`core.hooksPath` replaces `.git/hooks` completely.** Anything you already had
 in `.git/hooks/` stops firing once you set it, with no warning. If you keep
@@ -133,7 +133,8 @@ export AWS_REGION="us-east-1"   # only if your AWS profile has no region
 export SKILL_REVIEW_BACKEND=claude
 ```
 
-This runs `claude -p --restricted --strict-mcp-config` from an empty temporary
+This runs `claude -p --restricted --strict-mcp-config --model claude-opus-5`
+from an empty temporary
 directory, so the review does not depend on who commits: your CLAUDE.md files,
 your settings (and with them your hooks and plugins), and your MCP servers are
 all left out, and the tools that run commands are removed. The review
@@ -144,12 +145,14 @@ you give up that isolation and that split: a custom command gets the
 instructions and the skill text together on stdin.
 
 **Timeouts.** Each review gives up after 300 seconds and counts as unable to
-run. Change it with `SKILL_REVIEW_TIMEOUT`.
+run. Change it with `SKILL_REVIEW_TIMEOUT`, which takes a positive whole number
+of seconds. Zero is rejected rather than treated as "no limit".
 
 **Where to put these.** Any of them can go in `.env.local` instead, as
 `KEY=value` lines. A value wrapped in quotes and a leading `export` both work,
-so a file you also `source` needs no changes. That file is gitignored. The
-environment always wins over the file.
+so a file you also `source` needs no changes, and a trailing `# comment` or
+trailing whitespace is stripped rather than becoming part of the value. That
+file is gitignored. The environment always wins over the file.
 
 Check the wiring before you commit anything:
 
@@ -159,8 +162,9 @@ scripts/skill-review skills/plumb
 
 ## 4. What the Review Checks
 
-Every text file in the skill folder is sent, not only the four core docs, and
-the model is asked for exactly five things:
+Every text file in the skill folder is sent, not only the four core docs. Files
+inside a dot-directory are left out, and anything that is not text is named on
+stderr rather than dropped quietly. The model is asked for exactly five things:
 
 | Check | What It Catches |
 |---|---|
@@ -179,7 +183,8 @@ prints a warning and reviews the working tree copy instead.
 |---|---|---|
 | The whole response is the single line `Clean, ready for distribution` | 0 | Passes |
 | Anything else | 1 | Blocks the commit and prints the findings |
-| The review could not run (timeout, network, credentials) | 2 | Warns and lets the commit through |
+| The review could not run this time (timeout, network, an API error) | 2 | Warns and lets the commit through |
+| The review is misconfigured (unknown backend, missing key or dependency) | 3 | Blocks, because the next commit would fail the same way |
 
 The pass condition is deliberately strict. A response that mentions the phrase
 inside a sentence, or adds anything around it, is treated as a finding.
