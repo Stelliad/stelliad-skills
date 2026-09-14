@@ -6,5 +6,5 @@ DISTRIBUTION.md
 .env.local
 
 # Session scratch from local agent tooling, not part of the distribution
-logs/
-.agentics/
+/logs/
+/.agentics/

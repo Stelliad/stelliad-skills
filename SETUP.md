@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-13 16:56**
+**Last Updated: 2026-09-13 19:08**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -84,12 +84,15 @@ CI runs the boundary check on the pull request, and that is the gate that
 actually holds. Finishing a conflicted merge, cherry-pick or revert on main is
 allowed, since that commit concludes an operation git already started.
 
-To work on main directly anyway:
+To work on main directly anyway, turn the guard off for this clone:
 
 ```bash
-git commit --no-verify                     # this commit or push only
-git config stelliad.allowMainCommits true  # this clone, permanently
+git config stelliad.allowMainCommits true
 ```
+
+That setting lifts only the main-branch guards. `--no-verify` also gets past
+them, but it skips every other hook too, including the boundary check and its
+secrets scan, so keep it for a broken hook setup (see section 5).
 
 ## 3. Turn On the Model Review (optional)
 
@@ -133,16 +136,20 @@ export SKILL_REVIEW_BACKEND=claude
 This runs `claude -p --restricted --strict-mcp-config` from an empty temporary
 directory, so the review does not depend on who commits: your CLAUDE.md files,
 your settings (and with them your hooks and plugins), and your MCP servers are
-all left out, and the tools that run commands are removed. Set
-`SKILL_REVIEW_CLAUDE_CMD` to run something else, knowing that you give up that
-isolation.
+all left out, and the tools that run commands are removed. The review
+instructions go in as the system prompt and the skill text as the message, the
+same split the API backends make, so a file under review cannot pose as the
+instructions. Set `SKILL_REVIEW_CLAUDE_CMD` to run something else, knowing that
+you give up that isolation and that split: a custom command gets the
+instructions and the skill text together on stdin.
 
 **Timeouts.** Each review gives up after 300 seconds and counts as unable to
 run. Change it with `SKILL_REVIEW_TIMEOUT`.
 
-**Where to put these.** Any of them can go in `.env.local` instead, as plain
-`KEY=value` lines with no quoting. That file is gitignored. The environment
-always wins over the file.
+**Where to put these.** Any of them can go in `.env.local` instead, as
+`KEY=value` lines. A value wrapped in quotes and a leading `export` both work,
+so a file you also `source` needs no changes. That file is gitignored. The
+environment always wins over the file.
 
 Check the wiring before you commit anything:
 
@@ -164,7 +171,9 @@ the model is asked for exactly five things:
 | **Structure** | Missing sections, unclear progression, incomplete guidance |
 
 In the hook, the review reads the staged version of each changed skill, the
-same content the commit will take, not whatever is on disk.
+same content the commit will take, not whatever is on disk. If that snapshot
+cannot be made (no temp directory, or `git checkout-index` fails), the hook
+prints a warning and reviews the working tree copy instead.
 
 | Result | Exit | What the hook does |
 |---|---|---|

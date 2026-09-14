@@ -27,7 +27,8 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
     echo
     echo "If you really mean to push to main:"
     echo "  git config stelliad.allowMainCommits true   # persistent, per clone"
-    echo "  git push --no-verify ...                    # just this once"
+    echo "  git push --no-verify ...                    # just this once, but it skips"
+    echo "                                              # every other pre-push check too"
     exit 1
   fi
 done

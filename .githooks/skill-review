@@ -13,12 +13,15 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
+# Run through bash, the way pre-commit runs this hook, so nothing depends on
+# the exec bit. Checking -x here turned a lost bit (a zip download, a clone
+# with core.fileMode off) into a review that silently never ran.
 TOOL="scripts/skill-review"
-[ -x "$TOOL" ] || exit 0
+[ -f "$TOOL" ] || exit 0
 
 # Opt-in, and silent when not opted into. Claude Code on your PATH or an API
 # key in your shell is not a request for a blocking review.
-"$TOOL" --configured || exit 0
+bash "$TOOL" --configured || exit 0
 
 # Every skill with a staged change, derived rather than listed: a hardcoded
 # array goes stale the first time a skill is added, and the symptom is a skill
@@ -53,13 +56,15 @@ fi
 snapshot_of() {
   # Echoes a directory holding the indexed copy of $1, or $1 itself if the
   # snapshot could not be made. Falling back to the working tree is worse than
-  # the snapshot and better than not reviewing at all.
+  # the snapshot and better than not reviewing at all, but it is not what
+  # SETUP.md promises, so it says so on stderr rather than happening quietly.
   local skill="$1"
-  [ -n "$SNAP" ] || { echo "$skill"; return; }
-  if git ls-files -z -- "$skill" | xargs -0 git checkout-index --prefix="$SNAP/" -- 2>/dev/null \
+  if [ -n "$SNAP" ] \
+     && git ls-files -z -- "$skill" | xargs -0 git checkout-index --prefix="$SNAP/" -- 2>/dev/null \
      && [ -d "$SNAP/$skill" ]; then
     echo "$SNAP/$skill"
   else
+    echo "warning: could not snapshot the staged copy of $skill, reviewing the working tree instead" >&2
     echo "$skill"
   fi
 }
@@ -74,7 +79,7 @@ for skill in "${CHANGED_SKILLS[@]}"; do
   echo "Reviewing $skill..."
 
   REVIEW_DIR=$(snapshot_of "$skill")
-  if OUTPUT=$("$TOOL" "$REVIEW_DIR" "$skill" 2>&1); then
+  if OUTPUT=$(bash "$TOOL" "$REVIEW_DIR" "$skill" 2>&1); then
     echo "$OUTPUT"
     echo "$skill passed review"
     PASSED=$((PASSED + 1))

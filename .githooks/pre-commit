@@ -45,7 +45,8 @@ if [ "$BRANCH" = "main" ] && [ "$ALLOW" != "true" ] && [ "$IN_PROGRESS" = "false
   echo
   echo "If you really mean to commit on main:"
   echo "  git config stelliad.allowMainCommits true   # persistent, per clone"
-  echo "  git commit --no-verify                      # just this once"
+  echo "  git commit --no-verify                      # just this once, but it also"
+  echo "                                              # skips the boundary check and secrets scan"
   exit 1
 fi
 
