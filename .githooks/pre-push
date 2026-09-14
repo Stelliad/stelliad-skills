@@ -24,9 +24,15 @@ ALLOW=$(git config --bool stelliad.allowMainCommits 2>/dev/null || echo false)
 # also refused the ordinary fork flow: a contributor syncing their own fork's
 # main got a message about pull requests that does not apply to their remote,
 # and the only ways past it disabled the guard against this repo too.
-REMOTE_URL="${2:-}"
+#
+# Compared lowercased, without a trailing slash or .git: GitHub treats
+# github.com/stelliad/stelliad-skills as this repository, so a case-sensitive
+# match let that spelling of the URL push to main unchecked.
+REMOTE_URL=$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')
+REMOTE_URL="${REMOTE_URL%/}"
+REMOTE_URL="${REMOTE_URL%.git}"
 case "$REMOTE_URL" in
-  *[:/]Stelliad/stelliad-skills|*[:/]Stelliad/stelliad-skills.git) ;;
+  *[:/]stelliad/stelliad-skills) ;;
   *) exit 0 ;;
 esac
 

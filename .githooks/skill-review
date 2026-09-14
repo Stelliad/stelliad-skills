@@ -91,10 +91,11 @@ for skill in "${CHANGED_SKILLS[@]}"; do
       echo "$skill review failed"
       FAILED=$((FAILED + 1))
     elif [ "$STATUS" -eq 3 ]; then
-      # Misconfiguration, not a blip. A typo'd backend name or a key that was
-      # never set will still be wrong on the next commit and every one after,
-      # so waving it through means the review never runs again and says so once.
-      echo "$skill: the review is misconfigured"
+      # Not a blip. A typo'd backend name, a key that was never set, or a skill
+      # too long for the output limit fails the same way on the next commit and
+      # every one after, so waving it through means the review never runs again
+      # and says so once.
+      echo "$skill: the review cannot run until something changes"
       MISCONFIGURED=$((MISCONFIGURED + 1))
     else
       echo "review could not run for $skill, skipping (see SETUP.md)"

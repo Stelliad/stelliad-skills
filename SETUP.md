@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-14 10:07**
+**Last Updated: 2026-09-14 10:36**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -151,8 +151,10 @@ of seconds. Zero is rejected rather than treated as "no limit".
 **Where to put these.** Any of them can go in `.env.local` instead, as
 `KEY=value` lines. A value wrapped in quotes and a leading `export` both work,
 so a file you also `source` needs no changes, and a trailing `# comment` or
-trailing whitespace is stripped rather than becoming part of the value. That
-file is gitignored. The environment always wins over the file.
+trailing whitespace is stripped rather than becoming part of the value. A quote
+that is never closed, or text after the closing quote, is kept as written so it
+fails loudly instead of being guessed at. That file is gitignored. The
+environment always wins over the file.
 
 Check the wiring before you commit anything:
 
@@ -184,7 +186,10 @@ prints a warning and reviews the working tree copy instead.
 | The whole response is the single line `Clean, ready for distribution` | 0 | Passes |
 | Anything else | 1 | Blocks the commit and prints the findings |
 | The review could not run this time (timeout, network, an API error) | 2 | Warns and lets the commit through |
-| The review is misconfigured (unknown backend, missing key or dependency) | 3 | Blocks, because the next commit would fail the same way |
+| The review cannot run until something changes (unknown backend, missing key or dependency, a response cut off at the output limit) | 3 | Blocks, because the next commit would fail the same way |
+
+A response cut off at the output limit has no verdict, and the same skill will
+be cut off again on the next commit. If a skill hits that limit, split it.
 
 The pass condition is deliberately strict. A response that mentions the phrase
 inside a sentence, or adds anything around it, is treated as a finding.
