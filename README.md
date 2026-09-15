@@ -16,6 +16,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | Skill | What It Does | Who Uses It | Status |
 |---|---|---|---|
 | **counsel** | Audit whether your contracts match how you build with AI: disclosure, training posture, IP assignment, confidentiality, warranties, regulatory | CTOs, founders shipping with LLMs, compliance teams | ✅ Ready |
+| **clearance** | Vendor compliance checkpoint: assess a service against HIPAA/SOC2/COPPA/GDPR/FERPA, or discover and assess an entire stack at once | CTOs, compliance teams, anyone answering "can we use X?" | ✅ Ready |
 | **bloodhound** | Proactive secrets scanner with blast-radius mapping and rotation guidance | DevOps, security teams, anyone handling credentials | ✅ Ready |
 | **firewatch** | Automated incident triage from Sentry: classify, summarize, route to on-call | SREs, on-call engineers, incident response teams | ✅ Ready |
 | **generate-readme** | Auto-generate accurate READMEs from actual codebase (no placeholders) | Developers, open-source maintainers, documentation teams | ✅ Ready |
@@ -30,11 +31,13 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 **[counsel](./skills/counsel/SPEC.md)**: Read the full framework for AI tool compliance audits. Six modules covering disclosure, training, IP, confidentiality, warranties, and regulatory. Includes worked examples and customization guide.
 
+**[clearance](./skills/clearance/SPEC.md)**: The vendor compliance framework, including its stack-discovery mode: ten separate sources (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, and more) merged into one vendor inventory before anything gets assessed.
+
 **[campfire](./skills/campfire/SPEC.md) and [gauntlet](./skills/gauntlet/SPEC.md)** are a pair. campfire gets the raw material out of the author's head and drafts from it; gauntlet scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
 
 ## Getting Started
 
-Install all ten as a Claude Code plugin:
+Install all eleven as a Claude Code plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
