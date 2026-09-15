@@ -1,6 +1,6 @@
-# Clearance assessment format
+# Third-party compliance assessment format
 
-The section-by-section template a clearance assessment is written to. Read at
+The section-by-section template a third-party compliance assessment is written to. Read at
 SPEC.md procedure step 5, once the checklist and data-flow work is done.
 
 ```markdown

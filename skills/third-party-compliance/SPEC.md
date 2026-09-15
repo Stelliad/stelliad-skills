@@ -1,4 +1,4 @@
-# clearance: Vendor Compliance Checkpoint
+# Third-Party Compliance: Specification
 
 Evaluate a third-party app, service, or platform against a regulatory framework and produce a structured compliance summary suitable for customer conversations, proposals, and engagement deliverables.
 
@@ -63,7 +63,7 @@ For any ⚠️ or 🔴 items:
 
 ### 5. Produce Assessment
 
-Write the assessment using the template in `references/output-format.md`. Where it goes (a client folder, a shared compliance doc, inline in the conversation) is yours to decide — see CUSTOMIZE.md.
+Write the assessment using the template in `references/output-format.md`. Where it goes (a client folder, a shared compliance doc, inline in the conversation) is yours to decide. See CUSTOMIZE.md.
 
 ## Stack Assessment Mode
 
@@ -78,7 +78,7 @@ Do NOT rely solely on documentation to build the vendor list. Run ALL of the fol
 > Printing the value pulls a live credential into the conversation. Every
 > command below is written to emit names, never values. Do not relax one to
 > `grep -h` for convenience, and do not print a secret's value under any
-> circumstance while running this skill — that rule holds regardless of what
+> circumstance while running this skill. That rule holds regardless of what
 > your organization's own credential-handling policy says, because a scan
 > like this one is exactly the kind of place a credential leaks by accident.
 
@@ -160,7 +160,7 @@ Only THEN proceed to Step 1 (research) for each vendor in the inventory.
 
 ### Step 1: Read the project's own spec, scope docs, and status notes for business context
 
-This gives you the regulatory framing (which frameworks apply) and business context (what data flows through the system), but NOT the complete vendor list — that came from Step 0.
+This gives you the regulatory framing (which frameworks apply) and business context (what data flows through the system), but NOT the complete vendor list. That came from Step 0.
 
 ### Step 2: Run individual assessments for each vendor against the relevant framework
 
@@ -205,7 +205,7 @@ Assessments get stale. Track freshness:
 - **90-180 days:** Aging: verify certifications haven't expired
 - **> 180 days:** Stale: re-run before using in customer communications
 
-Store the assessment date in the output. Fold a recurring check into whatever review cadence your org already has — see CUSTOMIZE.md.
+Store the assessment date in the output. Fold a recurring check into whatever review cadence your org already has. See CUSTOMIZE.md.
 
 ## Completeness Checklist (Self-Verification)
 

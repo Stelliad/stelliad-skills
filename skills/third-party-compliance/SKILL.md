@@ -1,6 +1,6 @@
 ---
-name: clearance
-description: Vendor compliance checkpoint. Assess whether a third-party app or service is safe to use under a regulatory framework (HIPAA, SOC 2, COPPA, GDPR, FERPA, SOX), or assess your whole stack at once by discovering every vendor a codebase actually talks to. Produces a client-shareable compliance summary.
+name: third-party-compliance
+description: Third-party compliance checkpoint. Assess whether a third-party app or service is safe to use under a regulatory framework (HIPAA, SOC 2, COPPA, GDPR, FERPA, SOX), or assess your whole stack at once by discovering every vendor a codebase actually talks to. Produces a client-shareable compliance summary.
 license: MIT
 compatibility: Web search access (or equivalent research tooling) for vendor research. No other external dependencies.
 metadata:
@@ -12,7 +12,7 @@ scope: all
 status: active
 ---
 
-# clearance
+# third-party-compliance
 
 Evaluate a third-party app, service, or platform against a regulatory framework and produce a structured compliance summary suitable for customer conversations, proposals, and engagement deliverables.
 

@@ -1,8 +1,8 @@
-# clearance: Vendor Compliance Checkpoint
+# Third-Party Compliance
 
 **Assess whether a third-party service is safe to use under a regulatory framework, or assess your whole stack at once.**
 
-For engineering leads, CTOs, and compliance teams who need a real answer to "can we use this vendor?" — backed by evidence, not a guess.
+For engineering leads, CTOs, and compliance teams who need a real answer to "can we use this vendor?", backed by evidence rather than a guess.
 
 ## Running it
 
@@ -10,15 +10,15 @@ This is a specification an agent executes, not a binary. Install it by copying
 this folder into your project's skills directory:
 
 ```bash
-cp -r clearance /path/to/your-project/.claude/skills/
+cp -r third-party-compliance /path/to/your-project/.claude/skills/
 ```
 
 Then invoke it:
 
 ```
-/clearance {vendor} --framework {framework}
+/third-party-compliance {vendor} --framework {framework}
 
-or: "is Fathom HIPAA compliant", "run clearance on our stack", "can we use Firebase with children's data"
+or: "is Fathom HIPAA compliant", "check every third party our stack talks to", "can we use Firebase with children's data"
 ```
 
 The agent reads [SPEC.md](./SPEC.md) and does the work.
@@ -30,7 +30,7 @@ The agent reads [SPEC.md](./SPEC.md) and does the work.
 
 **Single vendor mode:** researches a named vendor's compliance documentation, checks it against a framework-specific checklist (HIPAA, COPPA, GDPR, SOC 2, FERPA), maps how your data would actually flow through it, and produces a client-shareable assessment.
 
-**Stack mode:** discovers every third-party vendor a codebase actually talks to — env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, frontend build vars, ten sources in total — then assesses each one and produces a compliance matrix for the whole stack. The discovery pass doubles as a credential-hygiene audit: it catches committed secrets and env files that should have been gitignored and weren't.
+**Stack mode:** discovers every third-party vendor a codebase actually talks to (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, frontend build vars, ten sources in total), then assesses each one and produces a compliance matrix for the whole stack. The discovery pass doubles as a credential-hygiene audit: it catches committed secrets and env files that should have been gitignored and weren't.
 
 Reports four verdicts:
 - ✅ Compliant: vendor explicitly meets the requirement, with evidence

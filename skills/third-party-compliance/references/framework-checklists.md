@@ -1,4 +1,4 @@
-# Clearance framework checklists
+# Third-party compliance framework checklists
 
 The per-framework requirement checklists: HIPAA, COPPA, GDPR, SOC 2, FERPA.
 Read only the one the run is assessing against, at SPEC.md procedure step 2.
