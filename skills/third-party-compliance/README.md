@@ -30,12 +30,12 @@ The agent reads [SPEC.md](./SPEC.md) and does the work.
 
 **Single vendor mode:** researches a named vendor's compliance documentation, checks it against a framework-specific checklist (HIPAA, COPPA, GDPR, SOC 2, FERPA), maps how your data would actually flow through it, and produces a client-shareable assessment.
 
-**Stack mode:** discovers every third-party vendor a codebase actually talks to (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, frontend build vars, ten sources in total), then assesses each one and produces a compliance matrix for the whole stack. The discovery pass doubles as a credential-hygiene audit: it catches committed secrets and env files that should have been gitignored and weren't.
+**Stack mode:** discovers every third-party vendor a codebase actually talks to (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, frontend build vars, eight sources in total), then assesses each one and produces a compliance matrix for the whole stack. The discovery pass doubles as a credential-hygiene audit: it catches committed secrets and env files that should have been gitignored and weren't.
 
 Reports four verdicts:
 - ✅ Compliant: vendor explicitly meets the requirement, with evidence
 - ⚠️ Conditionally compliant: meets it, but only with specific configuration
-- 🔴 Non-compliant: doesn't meet it, or no evidence exists
+- 🔴 Non-compliant: the vendor's own documentation shows it doesn't meet it
 - ❓ Insufficient evidence: couldn't confirm either way
 
 ## Getting Started

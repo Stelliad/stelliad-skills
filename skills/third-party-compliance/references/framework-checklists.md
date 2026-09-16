@@ -7,7 +7,7 @@ To add a framework your org needs (SOX, PCI-DSS, a state privacy law), follow
 this same shape: a numbered list of concrete, checkable requirements, each
 with a one-line description of what evidence would satisfy it.
 
-### HIPAA Checklist
+## HIPAA Checklist
 
 | # | Requirement | What to check |
 |---|-------------|---------------|
@@ -24,7 +24,7 @@ with a one-line description of what evidence would satisfy it.
 | 11 | De-identification | Can data be de-identified for analytics/reporting? |
 | 12 | Subprocessor management | List available, notification on changes |
 
-### COPPA Checklist
+## COPPA Checklist
 
 | # | Requirement | What to check |
 |---|-------------|---------------|
@@ -39,7 +39,7 @@ with a one-line description of what evidence would satisfy it.
 | 9 | Third-party sharing | Clear policy on whether children's data is shared |
 | 10 | Safe harbor program | Participation in FTC-approved safe harbor (bonus) |
 
-### GDPR Checklist
+## GDPR Checklist
 
 | # | Requirement | What to check |
 |---|-------------|---------------|
@@ -48,7 +48,7 @@ with a one-line description of what evidence would satisfy it.
 | 3 | Data subject rights | Supports access, rectification, erasure, portability |
 | 4 | Data residency | Can guarantee EU storage or has adequate transfer mechanism |
 | 5 | Transfer mechanisms | SCCs, adequacy decisions, or binding corporate rules |
-| 6 | Breach notification | ≤72 hours to controller |
+| 6 | Breach notification | Notifies the controller without undue delay after becoming aware of a breach (Art. 33(2)). A stated hour count is a plus: the controller itself has 72 hours to notify the supervisory authority |
 | 7 | Data Protection Impact Assessment | DPIA available or supported |
 | 8 | Privacy by design | Default privacy settings, data minimization |
 | 9 | Subprocessor management | List available, notification + objection right on changes |
@@ -56,7 +56,7 @@ with a one-line description of what evidence would satisfy it.
 | 11 | DPO appointed | Has a Data Protection Officer (required for large-scale) |
 | 12 | Consent management | Supports granular consent collection and withdrawal |
 
-### SOC 2 Checklist
+## SOC 2 Checklist
 
 | # | Requirement | What to check |
 |---|-------------|---------------|
@@ -73,7 +73,7 @@ with a one-line description of what evidence would satisfy it.
 | 11 | Employee security | Background checks, security training, offboarding |
 | 12 | Monitoring & alerting | SIEM or equivalent, 24/7 monitoring |
 
-### FERPA Checklist
+## FERPA Checklist
 
 | # | Requirement | What to check |
 |---|-------------|---------------|

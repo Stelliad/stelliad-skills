@@ -1,6 +1,6 @@
 ---
 name: third-party-compliance
-description: Third-party compliance checkpoint. Assess whether a third-party app or service is safe to use under a regulatory framework (HIPAA, SOC 2, COPPA, GDPR, FERPA, SOX), or assess your whole stack at once by discovering every vendor a codebase actually talks to. Produces a client-shareable compliance summary.
+description: Third-party compliance checkpoint. Assess whether a third-party app or service is safe to use under a regulatory framework (HIPAA, SOC 2, COPPA, GDPR, or FERPA), or assess your whole stack at once by discovering every vendor a codebase actually talks to. Produces a client-shareable compliance summary.
 license: MIT
 compatibility: Web search access (or equivalent research tooling) for vendor research. No other external dependencies.
 metadata:
@@ -33,8 +33,10 @@ HIPAA, COPPA, GDPR, SOC 2, FERPA. Extend to others (SOX, PCI-DSS, state privacy 
 Four verdicts:
 - ✅ **Compliant**: vendor explicitly meets the requirement, with evidence
 - ⚠️ **Conditionally compliant**: meets it, but only with specific configuration or a signed addendum
-- 🔴 **Non-compliant**: doesn't meet it, or no evidence exists
+- 🔴 **Non-compliant**: the vendor's own documentation shows it doesn't meet it
 - ❓ **Insufficient evidence**: couldn't find documentation either way
+
+SPEC.md step 2 sets the order that decides between them.
 
 ## Time required
 
