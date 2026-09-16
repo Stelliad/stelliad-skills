@@ -28,7 +28,7 @@ The agent reads [SPEC.md](./SPEC.md) and does the work.
 
 ## What It Does
 
-Scores a document on six dimensions — claim clarity, structural completeness, precision, defensibility, novelty, and AI-slop detection — each 1-10. Overall score is the lowest dimension: one weak link means not ready.
+Scores a document on six dimensions (claim clarity, structural completeness, precision, defensibility, novelty, and AI-slop detection), each 1-10. Overall score is the lowest dimension: one weak link means not ready.
 
 Splits every problem into two kinds:
 - **Editorial** (structure, vague phrasing, filler): the agent fixes these directly
@@ -63,7 +63,7 @@ Each has its own required sections and type-specific defensibility question. Add
 ## Not Included
 
 - Legal review (a patent scoring 9/10 on forge still needs an attorney)
-- Content/voice scoring for non-technical writing (marketing copy, blog posts — different rubric, different tool)
+- Content/voice scoring for non-technical writing (marketing copy, blog posts: different rubric, different tool)
 - A house style guide (forge checks defensibility and completeness, not tone)
 
 ## License

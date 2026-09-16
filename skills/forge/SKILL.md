@@ -1,6 +1,6 @@
 ---
 name: forge
-description: Score a technical document on claim clarity, structural completeness, precision, defensibility, and slop detection. Loops revision until it hits a 9/10 bar. Distinguishes between editorial fixes (the machine handles) and knowledge gaps (routes back to the author).
+description: Score a technical document on claim clarity, structural completeness, precision, defensibility, novelty, and slop detection. Loops revision until it hits a 9/10 bar. Distinguishes between editorial fixes (the machine handles) and knowledge gaps (routes back to the author).
 license: MIT
 compatibility: Run against any patent disclosure, ADR, design doc, whitepaper, or spec. No external dependencies.
 metadata:
@@ -27,12 +27,12 @@ Score a technical document against a quality bar. Fix what the machine can fix. 
 
 ## Scoring dimensions
 
-- **Claim clarity** — can someone act on this without a follow-up?
-- **Structural completeness** — are all required sections present and substantive?
-- **Precision** — is every statement load-bearing and verifiable?
-- **Defensibility** — would this survive review by a hostile reader?
-- **Novelty / value** — does it say something that isn't already obvious?
-- **Slop detection** — is any of this AI-generated filler?
+- **Claim clarity**: can someone act on this without a follow-up?
+- **Structural completeness**: are all required sections present and substantive?
+- **Precision**: is every statement load-bearing and verifiable?
+- **Defensibility**: would this survive review by a hostile reader?
+- **Novelty / value**: does it say something that isn't already obvious?
+- **Slop detection**: is any of this AI-generated filler?
 
 Overall score is the lowest dimension. One weak link means not ready.
 

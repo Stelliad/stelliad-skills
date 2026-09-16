@@ -33,7 +33,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 **[campfire](./skills/campfire/SPEC.md) and [gauntlet](./skills/gauntlet/SPEC.md)** are a pair. campfire gets the raw material out of the author's head and drafts from it; gauntlet scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
 
-**[forge](./skills/forge/SPEC.md)** is gauntlet's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric — precision and defensibility instead of hook and voice.
+**[forge](./skills/forge/SPEC.md)** is gauntlet's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
 ## Getting Started
 

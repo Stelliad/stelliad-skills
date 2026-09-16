@@ -28,20 +28,20 @@ SPEC.md covers five types: patent, ADR, design doc, whitepaper, spec. If your or
 
 - What does a 9/10 version of this document type look like?
 - What sections are required?
-- What's the type-specific defensibility question? ("Would this survive review by a hostile reader?" needs a concrete answer per type — see SPEC.md's per-type breakdowns for the pattern.)
+- What's the type-specific defensibility question? ("Would this survive review by a hostile reader?" needs a concrete answer per type; see SPEC.md's per-type breakdowns for the pattern.)
 
 ## 4. Fold Into Your Own Workflow
 
-The twin this was extracted from wires forge to a content-drafting skill (draft happens, forge scores it) and a separate content-quality skill for non-technical writing (forge is deliberately not that — it's for documents that live or die on precision and defensibility, not voice or hook).
+In this repository, `campfire` drafts from an author interview and `gauntlet` scores non-technical writing. forge runs once a draft exists, whoever or whatever wrote it, and it is deliberately not `gauntlet`: it's for documents that live or die on precision and defensibility, not voice or hook.
 
 **For your org:**
 - What produces your first drafts? (A person, an agent, a template.) forge runs after that, not instead of it.
-- Do you have a separate quality gate for non-technical writing (blog posts, marketing copy)? Keep that separate — forge's rubric is wrong for content that's supposed to be persuasive rather than precise.
+- Do you have a separate quality gate for non-technical writing (blog posts, marketing copy)? Keep that separate: forge's rubric is wrong for content that's supposed to be persuasive rather than precise.
 - Where do documents go once approved? (A wiki, a repo, a patent docket.) Have forge's "recommend where this document should live" step point there.
 
 ## 5. Decide Who Can Override the Bar
 
-"Author says ship" is an explicit override in the base procedure — someone can ship below the bar on purpose (a draft ADR that needs a team discussion before it's final, a spec that's intentionally incomplete pending a decision). Decide who holds that authority for each document type: the author alone, or the author plus a reviewer.
+"Author says ship" is an explicit override in the base procedure: someone can ship below the bar on purpose (a draft ADR that needs a team discussion before it's final, a spec that's intentionally incomplete pending a decision). Decide who holds that authority for each document type: the author alone, or the author plus a reviewer.
 
 ## Running forge as a Skill
 
@@ -70,4 +70,4 @@ If running by hand, read SPEC.md and follow the procedure directly.
 
 ---
 
-For questions on what counts as "defensible" for your specific field (patent claims especially), consult the relevant specialist — forge finds the gaps, it doesn't replace expert judgment on how to close them.
+For questions on what counts as "defensible" for your specific field (patent claims especially), consult the relevant specialist. forge finds the gaps; it doesn't replace expert judgment on how to close them.

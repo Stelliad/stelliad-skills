@@ -45,11 +45,11 @@ Each dimension scored 1-10. Overall score is the lowest dimension. One weak link
 | 3-4 | Major structural gaps. Key sections missing or placeholder only. |
 | 1-2 | Doesn't follow any recognizable structure for its type. |
 
-**Required sections by type** (adapt these — see CUSTOMIZE.md):
+**Required sections by type** (adapt these; see CUSTOMIZE.md):
 - Patent: Problem, Prior Art, Novel Approach, Claims, Embodiments, Figures, Advantages
-- ADR: Context, Decision, Rationale, Alternatives Considered, Consequences
-- Design: Goal, Non-Goals, Background, Proposed Design, Risks, Open Questions, Timeline
-- Whitepaper: Abstract, Introduction, Architecture, Implementation, Evaluation, Related Work
+- ADR: Context, Decision, Rationale, Alternatives Considered, Consequences, Revisit Trigger
+- Design: Goal, Non-Goals, Background, Proposed Design, Migration / Rollout (anything touching production), Risks, Open Questions, Timeline
+- Whitepaper: Abstract, Introduction, Architecture, Implementation, Evaluation, Related Work, Limitations
 - Spec: Overview, Data Model, API Surface, Logic/Rules, Dependencies, Testing, Ops
 
 ### 3. Precision (is every statement load-bearing and verifiable?)
@@ -129,10 +129,10 @@ Each dimension scored 1-10. Overall score is the lowest dimension. One weak link
 | Context-free evaluation | "Results show improved performance" without baseline or methodology | State what was measured, how, against what baseline |
 
 **Scoring:**
-- 0-1 tells → 9-10
-- 2-3 tells → 7-8
-- 4-6 tells → 5-6
-- 7+ tells → 3 or below
+- 0 tells → 9-10
+- 1-2 tells → 7-8
+- 3-5 tells → 5-6
+- 6+ tells → 4 or below
 
 ## Procedure
 
@@ -150,28 +150,30 @@ This determines which sections are required and which rubrics to weight.
 ### 2. Score the document
 
 ```
-🔨 Forge Review: "Invention Disclosure. Cognitive Shard System"
+🔨 Forge Review: "Invention Disclosure: Write-Aware Cache Invalidation"
 Type: Patent / Invention Disclosure
 
 Claim Clarity:    8/10. Claims are specific but Claim 3 needs tighter language on the trigger mechanism.
 Completeness:     7/10. Missing one embodiment variant (edge deployment). Figures section is thin.
 Precision:        9/10. Latency numbers grounded, architecture traces to actual code.
-Defensibility:    8/10. Prior art section is honest. One claim overlaps with [specific existing patent].
-Novelty:          9/10. The combination of session-scoped retrieval + shard routing is non-obvious.
+Defensibility:    8/10. Prior art section is honest, but Claim 2 reads close to TTL-based invalidation and doesn't say how it differs.
+Novelty:          9/10. Driving per-key expiry from write-path signals is non-obvious.
 Slop:             9/10. Clean. One generic sentence in the Advantages section to tighten.
 
 Overall: 7/10 (Completeness is the limiter)
 Bar: 9/10
 
-Verdict: NOT READY, 1 dimension below bar.
+Verdict: NOT READY, 3 dimensions below bar.
 ```
+
+Lead with the limiter. When two or more dimensions tie for lowest, name all of them on the Overall line rather than picking one.
 
 ### 3. Classify fixes
 
 | Fix type | Who handles | Example |
 |----------|-------------|---------|
 | Editorial | Machine | "Tighten Claim 3 language, cut generic sentence in Advantages" |
-| Knowledge gap | Author | "What happens in the edge deployment case? Is the shard system viable without persistent connectivity?" |
+| Knowledge gap | Author | "What happens in the edge deployment case? Does invalidation still work without persistent connectivity to the origin?" |
 
 ### 4. Fix or route
 
@@ -181,6 +183,8 @@ Verdict: NOT READY, 1 dimension below bar.
 ### 5. Loop
 
 Re-score after fixes. Max 3 editorial loops. Knowledge gaps require author input, can't be brute-forced.
+
+At the cap, with the bar not reached and no "ship" from the author, stop and report the ceiling instead of running a fourth pass: the score it stalled at, the dimension holding it back, and the knowledge-gap questions still open. Do not fill a knowledge gap to clear the bar.
 
 ### 6. Approve
 
@@ -214,7 +218,7 @@ At the bar (default 9/10) or the author says "ship":
 ### Design Document / RFC
 
 - [ ] Non-Goals section present and substantive
-- [ ] At least one diagram in Detailed Design
+- [ ] At least one diagram in Proposed Design
 - [ ] Migration/rollout plan for anything touching production
 - [ ] Open Questions section (empty = suspicious)
 - [ ] Risks table with mitigations (not just risks listed)
