@@ -40,7 +40,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 ## Getting Started
 
-Install all eleven as a Claude Code plugin:
+Install all twelve as a Claude Code plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
