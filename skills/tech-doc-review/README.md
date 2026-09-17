@@ -1,4 +1,4 @@
-# forge: Technical Document Quality Gate
+# Technical Document Review
 
 **Score a technical document against a quality bar. Loop revisions until it's ready, or until the author explicitly says ship.**
 
@@ -10,15 +10,15 @@ This is a specification an agent executes, not a binary. Install it by copying
 this folder into your project's skills directory:
 
 ```bash
-cp -r forge /path/to/your-project/.claude/skills/
+cp -r tech-doc-review /path/to/your-project/.claude/skills/
 ```
 
 Then invoke it:
 
 ```
-/forge
+/tech-doc-review
 
-or: "score this design doc", "is this patent ready", "forge check"
+or: "score this design doc", "is this patent ready", "review this tech doc"
 ```
 
 The agent reads [SPEC.md](./SPEC.md) and does the work.
@@ -62,9 +62,9 @@ Each has its own required sections and type-specific defensibility question. Add
 
 ## Not Included
 
-- Legal review (a patent scoring 9/10 on forge still needs an attorney)
+- Legal review (a patent scoring 9/10 on tech-doc-review still needs an attorney)
 - Content/voice scoring for non-technical writing (marketing copy, blog posts: different rubric, different tool)
-- A house style guide (forge checks defensibility and completeness, not tone)
+- A house style guide (tech-doc-review checks defensibility and completeness, not tone)
 
 ## License
 

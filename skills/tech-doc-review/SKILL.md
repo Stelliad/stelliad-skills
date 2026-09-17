@@ -1,5 +1,5 @@
 ---
-name: forge
+name: tech-doc-review
 description: Score a technical document on claim clarity, structural completeness, precision, defensibility, novelty, and slop detection. Loops revision until it hits a 9/10 bar. Distinguishes between editorial fixes (the machine handles) and knowledge gaps (routes back to the author).
 license: MIT
 compatibility: Run against any patent disclosure, ADR, design doc, whitepaper, or spec. No external dependencies.
@@ -12,7 +12,7 @@ scope: all
 status: active
 ---
 
-# forge
+# tech-doc-review
 
 Score a technical document against a quality bar. Fix what the machine can fix. Route knowledge gaps back to the author. Loop until it hits 9/10 or the author says ship.
 

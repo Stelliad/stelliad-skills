@@ -1,4 +1,4 @@
-# forge: Technical Document Quality Framework
+# Technical Document Review: Specification
 
 Score technical documents against a quality bar. Fix what the machine can fix. Route knowledge gaps back to the author. Loop until it hits 9/10 or the author says ship.
 
@@ -150,7 +150,7 @@ This determines which sections are required and which rubrics to weight.
 ### 2. Score the document
 
 ```
-🔨 Forge Review: "Invention Disclosure: Write-Aware Cache Invalidation"
+Tech Doc Review: "Invention Disclosure: Write-Aware Cache Invalidation"
 Type: Patent / Invention Disclosure
 
 Claim Clarity:    8/10. Claims are specific but Claim 3 needs tighter language on the trigger mechanism.
@@ -248,4 +248,4 @@ At the bar (default 9/10) or the author says "ship":
 - Meeting notes and communications
 - Status updates
 
-forge is for documents that will be shared externally, filed as IP, or referenced as architectural source of truth. Not for everything that gets written.
+tech-doc-review is for documents that will be shared externally, filed as IP, or referenced as architectural source of truth. Not for everything that gets written.
