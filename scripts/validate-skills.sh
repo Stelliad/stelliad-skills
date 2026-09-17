@@ -108,7 +108,22 @@ for f in "${FILES[@]}"; do
   # Test for a byte that cannot appear in text instead. Not $'\0': bash cannot
   # hold a NUL in a string, so that pattern is the empty string and matches
   # every file, skipping all of them and reporting Clean against nothing.
-  if printf '%s' "$content" | LC_ALL=C grep -q '[^[:print:][:space:]]'; then
+  #
+  # Match control bytes, not "not printable in the C locale". Under LC_ALL=C
+  # every byte of a UTF-8 character is unprintable, so `[^[:print:][:space:]]`
+  # called an em dash, an arrow, a box-drawing character or an emoji binary and
+  # skipped the file. That is not a narrow miss: `continue` skips every check
+  # below, so the secret sweep, the blocked-identifier sweep and the broken-link
+  # check never read most of the tracked files, and the run still said Clean.
+  # A checker that cannot fail is worse than no checker, because the green tick
+  # is evidence of nothing.
+  #
+  # The range is every C0 control except tab, newline, vertical tab, form feed
+  # and carriage return, plus DEL. A real binary carries these; UTF-8 text does
+  # not, because every continuation byte is >= 0x80. Vertical tab and form feed
+  # are whitespace that turns up in pasted text, and the old test read files
+  # containing them, so treating them as binary would skip those files entirely.
+  if printf '%s' "$content" | LC_ALL=C grep -q $'[\001-\010\016-\037\177]'; then
     continue
   fi
 

@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-14 10:36**
+**Last Updated: 2026-09-17 08:06**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
