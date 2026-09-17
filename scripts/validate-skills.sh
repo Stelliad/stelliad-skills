@@ -114,14 +114,16 @@ for f in "${FILES[@]}"; do
   # called an em dash, an arrow, a box-drawing character or an emoji binary and
   # skipped the file. That is not a narrow miss: `continue` skips every check
   # below, so the secret sweep, the blocked-identifier sweep and the broken-link
-  # check never read 30 of the 58 tracked files, and the run still said Clean.
+  # check never read most of the tracked files, and the run still said Clean.
   # A checker that cannot fail is worse than no checker, because the green tick
   # is evidence of nothing.
   #
-  # The range is every C0 control except tab, newline and carriage return, plus
-  # DEL. A real binary carries these; UTF-8 text does not, because every
-  # continuation byte is >= 0x80.
-  if printf '%s' "$content" | LC_ALL=C grep -q $'[\001-\010\013\014\016-\037\177]'; then
+  # The range is every C0 control except tab, newline, vertical tab, form feed
+  # and carriage return, plus DEL. A real binary carries these; UTF-8 text does
+  # not, because every continuation byte is >= 0x80. Vertical tab and form feed
+  # are whitespace that turns up in pasted text, and the old test read files
+  # containing them, so treating them as binary would skip those files entirely.
+  if printf '%s' "$content" | LC_ALL=C grep -q $'[\001-\010\016-\037\177]'; then
     continue
   fi
 
@@ -141,6 +143,13 @@ for f in "${FILES[@]}"; do
 
   case "$f" in
     *.md)
+      # Em dashes. Repo convention since the first release: none anywhere.
+      # An en dash in a numeric range is fine and is not matched here.
+      if printf '%s' "$content" | grep -q '—'; then
+        n=$(printf '%s' "$content" | grep -o '—' | wc -l | tr -d ' ')
+        fail "$f" "$n em dash(es)" "Use a colon, a comma, or two sentences. En dashes in ranges are fine."
+      fi
+
       # Invisible characters. Zero-width spaces get used to escape nested code
       # fences; they render correctly and hide text from a human reader but not
       # from a model. Four-backtick outer fences do the same job in the open.
