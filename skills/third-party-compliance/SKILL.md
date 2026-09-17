@@ -36,7 +36,7 @@ Four verdicts:
 - 🔴 **Non-compliant**: the vendor's own documentation shows it doesn't meet it
 - ❓ **Insufficient evidence**: couldn't find documentation either way
 
-SPEC.md step 2 sets the order that decides between them.
+Procedure step 2 in SPEC.md, Evaluate Against Framework Checklist, sets the order that decides between them.
 
 ## Time required
 

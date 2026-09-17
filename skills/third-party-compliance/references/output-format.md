@@ -1,7 +1,7 @@
 # Third-party compliance assessment format
 
 The section-by-section template a third-party compliance assessment is written to. Read at
-SPEC.md procedure step 5, once the checklist and data-flow work is done. Status marks, the Score, and the Verdict all follow SPEC.md step 2: ✅ items count as passed, and every item not marked ➖ counts as applicable.
+SPEC.md procedure step 5, once the checklist and data-flow work is done. Status marks, the Score, and the Verdict all follow procedure step 2 in SPEC.md: ✅ items count as passed, and every item not marked ➖ counts as applicable.
 
 ```markdown
 # Vendor Compliance Assessment: {Vendor Name}

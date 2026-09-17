@@ -98,19 +98,19 @@ Do NOT rely solely on documentation to build the vendor list. Run ALL of the fol
 
 **Source 1: Environment files** (highest signal)
 ```bash
-# Every variable name, never a value: -o prints only "NAME=", sed drops the "=".
+# Every variable name, never a value: -o stops at the "=", sed drops "export" and the "=".
 find {repo_path} \( -name ".env*" -o -name "*.env" \) -type f -print0 \
-  | xargs -0 -r grep -hoE "^(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=" \
-  | sed -E 's/^export[[:space:]]+//; s/=$//' | sort -u
+  | xargs -0 -r grep -hoE "^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=" \
+  | sed -E 's/^[[:space:]]*(export[[:space:]]+)?//; s/[[:space:]]*=$//' | sort -u
 ```
 Collect every name, not just the ones with a telling suffix: `SENTRY_DSN`, `GOOGLE_CLIENT_ID`, and `REDIS_HOST` all point at a vendor. Suffixes like `_API_KEY`, `_SECRET`, `_TOKEN`, `_DSN`, `_URL`, `_HOST`, and `_CLIENT_ID` help decide which names to look at first. They are not a filter.
 
 **Source 2: Docker Compose / infrastructure**
 ```bash
 # Images, then variable names. Neither command prints a value.
-find {repo_path} -name "docker-compose*" -print0 | xargs -0 grep -hoE "image: *[^ ]+" | sort -u
-find {repo_path} -name "docker-compose*" -print0 \
-  | xargs -0 grep -hoE "[A-Z0-9_]+(_API_KEY|_SECRET|_URL|_TOKEN)" | sort -u
+find {repo_path} -name "docker-compose*" -type f -print0 | xargs -0 -r grep -hoE "image: *[^ ]+" | sort -u
+find {repo_path} -name "docker-compose*" -type f -print0 \
+  | xargs -0 -r grep -hoE "[A-Z0-9_]+(_API_KEY|_SECRET|_URL|_TOKEN)" | sort -u
 ```
 Every external image, every environment variable pointing to a service = a vendor.
 
@@ -148,26 +148,31 @@ Frontend env vars often reveal client-side SDK integrations (Google Maps, Stripe
 **Source 6: Committed credentials scan** (security finding, not just vendor discovery)
 ```bash
 # Which env files hold something shaped like a real credential, not a placeholder.
-# -l prints file names only. The prefixes only count right after "=", so PRE_, CORE_ and STORE_ don't match.
+# -l prints file names only. A prefix only counts right after "=" and when the value then has an
+# uppercase letter or digit, so PRE_, CORE_ and re_index_all_documents don't match. KEY only counts
+# as a whole word in the variable name, so API_KEY and AWS_ACCESS_KEY_ID match and MONKEY_ doesn't.
 find {repo_path} -name ".env*" ! -name "*.example" -type f -print0 \
-  | xargs -0 -r grep -lE "=[\"']?(sk-|sk_|whsec_|re_)[A-Za-z0-9_-]{16,}|KEY[A-Za-z0-9_]*[[:space:]]*=[[:space:]]*[\"']?[A-Za-z0-9/+=_-]{20,}"
+  | xargs -0 -r grep -lE "=[[:space:]]*[\"']?(sk-|sk_|whsec_|re_)[a-z_-]*[A-Z0-9][A-Za-z0-9_-]{12,}|^[[:space:]]*(export[[:space:]]+)?([A-Za-z0-9]+_)*KEY(_[A-Za-z0-9]+)*[[:space:]]*=[[:space:]]*[\"']?[A-Za-z0-9/+=_-]{20,}"
 ```
 This one is deliberately `grep -l`: it reports *which file* matched and never
 the matching line. Keep it that way.
 
-A match is a lead. It becomes a **Critical security finding** when git tracks the file now or ever committed it, whatever `.gitignore` says today: adding a file to `.gitignore` doesn't untrack it, and history keeps every version. Both commands print file names only:
+A match is a lead. It becomes a **Critical security finding** when git tracks the file now or ever committed it, whatever `.gitignore` says today: adding a file to `.gitignore` doesn't untrack it, and history keeps every version. These print file names only:
 
 ```bash
-git -C {repo_path} ls-files -- '*.env*' ':!*.example'
-git -C {repo_path} log --all --diff-filter=A --name-only --format= -- '*.env*' ':!*.example' | sed '/^$/d' | sort -u
+git -C {repo_path} rev-parse --is-inside-work-tree >/dev/null 2>&1 || echo "NOT A GIT REPO: tracked and committed status was not checked"
+git -C {repo_path} ls-files -- '*.env*' ':!*.example' 2>/dev/null
+git -C {repo_path} log --all --diff-filter=A --name-only --format= -- '*.env*' ':!*.example' 2>/dev/null | sed '/^$/d' | sort -u
 ```
+
+Inside a git repository, no output at all means no env file is tracked now or was ever committed. Outside one, the first line reads NOT A GIT REPO and the rest is silent: report that this check didn't run, rather than reading the silence as clean.
 
 A live key in version control is direct evidence against the credential controls SOC 2 and HIPAA both expect. Treat it as a rotation event.
 
 **Source 7: CI/CD pipelines**
 ```bash
-find {repo_path} \( -path "*/.github/workflows/*" -o -path "*/.gitlab-ci*" -o -name "Dockerfile*" \) -print0 2>/dev/null \
-  | xargs -0 grep -hoE "[A-Z0-9_]*(SECRET|TOKEN|KEY|_URL)[A-Z0-9_]*" | sort -u
+find {repo_path} \( -path "*/.github/workflows/*" -o -path "*/.gitlab-ci*" -o -name "Dockerfile*" \) -type f -print0 2>/dev/null \
+  | xargs -0 -r grep -hoE "[A-Z0-9_]*(SECRET|TOKEN|KEY|_URL)[A-Z0-9_]*" | sort -u
 ```
 A hardcoded value in a workflow or Dockerfile is a Critical finding. Report the
 file and the variable name. **Never quote the value**, and treat it as a rotation
