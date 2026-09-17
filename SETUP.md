@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-15 18:37**
+**Last Updated: 2026-09-17 08:06**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -27,7 +27,7 @@ and the workflow both call it. Neither carries its own copy, because two copies
 of a pattern list drift and the drift is silent.
 
 What it checks: strings that must not cross the distribution boundary, secret
-values (a name bound to a value, never a bare name), invisible
+values (a name bound to a value, never a bare name), em dashes, invisible
 characters, unbalanced code fences, broken local links, and that every skill
 folder ships all four files with valid frontmatter. CI adds a sweep of git
 history for committed credentials, which the working-tree scan structurally
