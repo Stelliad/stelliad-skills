@@ -26,6 +26,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **harvest** | Test coverage gap analysis: find untested code paths and unmocked external calls | QA leads, coverage-conscious teams | ✅ Ready |
 | **campfire** | Interview the author first, then draft from their answers instead of inventing the substance | Founders, writers, anyone whose content has to sound like them | ✅ Ready |
 | **gauntlet** | Score a draft on seven dimensions; fix what is editorial, ask the author for what is missing | Content leads, editors, teams publishing with AI in the loop | ✅ Ready |
+| **tech-doc-review** | Score a technical document (patent, ADR, design doc, whitepaper, spec) on six dimensions; fix what's editorial, route knowledge gaps back to the author | Engineers, tech leads, anyone filing IP or writing design docs | ✅ Ready |
 
 ### Deep Dives
 
@@ -34,6 +35,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 **[third-party-compliance](./skills/third-party-compliance/SPEC.md)**: The third-party compliance framework, including its stack-discovery mode: eight sources (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, and more) merged into one vendor inventory before anything gets assessed.
 
 **[campfire](./skills/campfire/SPEC.md) and [gauntlet](./skills/gauntlet/SPEC.md)** are a pair. campfire gets the raw material out of the author's head and drafts from it; gauntlet scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
+
+**[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is gauntlet's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
 ## Getting Started
 
