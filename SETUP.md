@@ -159,7 +159,7 @@ environment always wins over the file.
 Check the wiring before you commit anything:
 
 ```bash
-scripts/skill-review skills/plumb
+scripts/skill-review skills/review-principles
 ```
 
 ## 4. What the Review Checks

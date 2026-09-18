@@ -32,7 +32,7 @@ SPEC.md covers five types: patent, ADR, design doc, whitepaper, spec. If your or
 
 ## 4. Fold Into Your Own Workflow
 
-In this repository, `campfire` drafts from an author interview and `gauntlet` scores non-technical writing. tech-doc-review runs once a draft exists, whoever or whatever wrote it, and it is deliberately not `gauntlet`: it's for documents that live or die on precision and defensibility, not voice or hook.
+In this repository, `compose-from-interview` drafts from an author interview and `compose-score` scores non-technical writing. tech-doc-review runs once a draft exists, whoever or whatever wrote it, and it is deliberately not `compose-score`: it's for documents that live or die on precision and defensibility, not voice or hook.
 
 **For your org:**
 - What produces your first drafts? (A person, an agent, a template.) tech-doc-review runs after that, not instead of it.

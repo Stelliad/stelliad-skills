@@ -15,28 +15,28 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 | Skill | What It Does | Who Uses It | Status |
 |---|---|---|---|
-| **counsel** | Audit whether your contracts match how you build with AI: disclosure, training posture, IP assignment, confidentiality, warranties, regulatory | CTOs, founders shipping with LLMs, compliance teams | ✅ Ready |
+| **ai-contract-audit** | Audit whether your contracts match how you build with AI: disclosure, training posture, IP assignment, confidentiality, warranties, regulatory | CTOs, founders shipping with LLMs, compliance teams | ✅ Ready |
 | **third-party-compliance** | Third-party compliance checkpoint: assess an outside service against HIPAA/SOC 2/COPPA/GDPR/FERPA, or discover and assess an entire stack at once | CTOs, compliance teams, anyone answering "can we use X?" | ✅ Ready |
-| **bloodhound** | Proactive secrets scanner with blast-radius mapping and rotation guidance | DevOps, security teams, anyone handling credentials | ✅ Ready |
-| **firewatch** | Automated incident triage from Sentry: classify, summarize, route to on-call | SREs, on-call engineers, incident response teams | ✅ Ready |
+| **secret-scan** | Proactive secrets scanner with blast-radius mapping and rotation guidance | DevOps, security teams, anyone handling credentials | ✅ Ready |
+| **triage-alert** | Automated alert triage from Sentry: classify, summarize, route to on-call | SREs, on-call engineers, incident response teams | ✅ Ready |
 | **generate-readme** | Auto-generate accurate READMEs from actual codebase (no placeholders) | Developers, open-source maintainers, documentation teams | ✅ Ready |
 | **repo-audit** | Security and quality baseline audit: SOLID, secrets, test coverage, dependencies | CTOs, security teams, repo owners at onboarding | ✅ Ready |
 | **test-first** | TDD enforcement across any framework: require tests before code, halt on low coverage | Engineering leads, QA teams, CI/CD owners | ✅ Ready |
-| **plumb** | Code review against SOLID principles and engineering best practices | Senior engineers, architecture reviewers | ✅ Ready |
-| **harvest** | Test coverage gap analysis: find untested code paths and unmocked external calls | QA leads, coverage-conscious teams | ✅ Ready |
-| **campfire** | Interview the author first, then draft from their answers instead of inventing the substance | Founders, writers, anyone whose content has to sound like them | ✅ Ready |
-| **gauntlet** | Score a draft on seven dimensions; fix what is editorial, ask the author for what is missing | Content leads, editors, teams publishing with AI in the loop | ✅ Ready |
+| **review-principles** | Code review against SOLID principles and engineering best practices | Senior engineers, architecture reviewers | ✅ Ready |
+| **coverage-gaps** | Test coverage gap analysis: find untested code paths and unmocked external calls | QA leads, coverage-conscious teams | ✅ Ready |
+| **compose-from-interview** | Interview the author first, then draft from their answers instead of inventing the substance | Founders, writers, anyone whose content has to sound like them | ✅ Ready |
+| **compose-score** | Score a draft on seven dimensions; fix what is editorial, ask the author for what is missing | Content leads, editors, teams publishing with AI in the loop | ✅ Ready |
 | **tech-doc-review** | Score a technical document (patent, ADR, design doc, whitepaper, spec) on six dimensions; fix what's editorial, route knowledge gaps back to the author | Engineers, tech leads, anyone filing IP or writing design docs | ✅ Ready |
 
 ### Deep Dives
 
-**[counsel](./skills/counsel/SPEC.md)**: Read the full framework for AI tool compliance audits. Six modules covering disclosure, training, IP, confidentiality, warranties, and regulatory. Includes worked examples and customization guide.
+**[ai-contract-audit](./skills/ai-contract-audit/SPEC.md)**: Read the full framework for AI tool compliance audits. Six modules covering disclosure, training, IP, confidentiality, warranties, and regulatory. Includes worked examples and customization guide.
 
 **[third-party-compliance](./skills/third-party-compliance/SPEC.md)**: The third-party compliance framework, including its stack-discovery mode: eight sources (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, and more) merged into one vendor inventory before anything gets assessed.
 
-**[campfire](./skills/campfire/SPEC.md) and [gauntlet](./skills/gauntlet/SPEC.md)** are a pair. campfire gets the raw material out of the author's head and drafts from it; gauntlet scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
+**[compose-from-interview](./skills/compose-from-interview/SPEC.md) and [compose-score](./skills/compose-score/SPEC.md)** are a pair. compose-from-interview gets the raw material out of the author's head and drafts from it; compose-score scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
 
-**[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is gauntlet's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
+**[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is compose-score's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
 ## Getting Started
 
@@ -47,7 +47,7 @@ Install all eleven as a Claude Code plugin:
 /plugin install stelliad@stelliad
 ```
 
-They arrive namespaced, so `plumb` is `/stelliad:plumb` and cannot collide
+They arrive namespaced, so `review-principles` is `/stelliad:review-principles` and cannot collide
 with a skill of the same name from anywhere else. `/plugin update stelliad`
 pulls a new release. Releases are versioned deliberately: nothing changes under
 you until the version in `.claude-plugin/plugin.json` is bumped.
