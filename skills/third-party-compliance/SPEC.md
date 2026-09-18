@@ -149,10 +149,11 @@ Frontend env vars often reveal client-side SDK integrations (Google Maps, Stripe
 ```bash
 # Which env files hold something shaped like a real credential, not a placeholder.
 # -l prints file names only. A prefix only counts right after "=" and when the value then has an
-# uppercase letter or digit, so PRE_, CORE_ and re_index_all_documents don't match. KEY only counts
-# as a whole word in the variable name, so API_KEY and AWS_ACCESS_KEY_ID match and MONKEY_ doesn't.
+# uppercase letter or digit, so PRE_, CORE_ and re_index_all_documents don't match. KEY has to start
+# a segment of the name, so API_KEY, AWS_ACCESS_KEY_ID, KEYCLOAK_CLIENT_SECRET and KEYSTORE_PASSWORD
+# match and MONKEY_ doesn't.
 find {repo_path} -name ".env*" ! -name "*.example" -type f -print0 \
-  | xargs -0 -r grep -lE "=[[:space:]]*[\"']?(sk-|sk_|whsec_|re_)[a-z_-]*[A-Z0-9][A-Za-z0-9_-]{12,}|^[[:space:]]*(export[[:space:]]+)?([A-Za-z0-9]+_)*KEY(_[A-Za-z0-9]+)*[[:space:]]*=[[:space:]]*[\"']?[A-Za-z0-9/+=_-]{20,}"
+  | xargs -0 -r grep -lE "=[[:space:]]*[\"']?(sk-|sk_|whsec_|re_)[a-z_-]*[A-Z0-9][A-Za-z0-9_-]{12,}|^[[:space:]]*(export[[:space:]]+)?([A-Za-z0-9]+_)*KEY[A-Za-z0-9]*(_[A-Za-z0-9]+)*[[:space:]]*=[[:space:]]*[\"']?[A-Za-z0-9/+=_-]{20,}"
 ```
 This one is deliberately `grep -l`: it reports *which file* matched and never
 the matching line. Keep it that way.
