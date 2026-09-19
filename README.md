@@ -27,6 +27,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **compose-from-interview** | Interview the author first, then draft from their answers instead of inventing the substance | Founders, writers, anyone whose content has to sound like them | ✅ Ready |
 | **compose-score** | Score a draft on seven dimensions; fix what is editorial, ask the author for what is missing | Content leads, editors, teams publishing with AI in the loop | ✅ Ready |
 | **tech-doc-review** | Score a technical document (patent, ADR, design doc, whitepaper, spec) on six dimensions; fix what's editorial, route knowledge gaps back to the author | Engineers, tech leads, anyone filing IP or writing design docs | ✅ Ready |
+| **verify-done** | Gate a completion claim behind fresh evidence: name the command that proves it, run it, read the output, then state the claim with the result | Engineering leads, teams running coding agents, anyone in a fix-and-recheck loop | ✅ Ready |
 
 ### Deep Dives
 
@@ -35,6 +36,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 **[third-party-compliance](./skills/third-party-compliance/SPEC.md)**: The third-party compliance framework, including its stack-discovery mode: eight sources (env files, docker-compose, package manifests, infrastructure-as-code, CI/CD, and more) merged into one vendor inventory before anything gets assessed.
 
 **[compose-from-interview](./skills/compose-from-interview/SPEC.md) and [compose-score](./skills/compose-score/SPEC.md)** are a pair. compose-from-interview gets the raw material out of the author's head and drafts from it; compose-score scores the result and sends what is missing back rather than generating it. They work independently, and they work better together. Both need a voice profile, and both CUSTOMIZE guides explain how to derive one from a corpus of what someone actually said rather than from an impression of how they sound.
+
+**[verify-done](./skills/verify-done/SPEC.md)** is test-first's other half: test-first produces the evidence, verify-done refuses the claim without it. Its proof table is the useful part, each row naming the thing people substitute for the proof, and its retry cap is what stops an autonomous loop spending a day on a fix that was never going to land.
 
 **[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is compose-score's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
