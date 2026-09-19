@@ -30,6 +30,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **verify-done** | Gate a completion claim behind fresh evidence: name the command that proves it, run it, read the output, then state the claim with the result | Engineering leads, teams running coding agents, anyone in a fix-and-recheck loop | ✅ Ready |
 | **find-dead-code** | Find orphaned files, unused exports, dead dependencies and commented-out code, each row carrying a confidence level, and delete nothing | Teams cutting bundle size, anyone inheriting a codebase, security-minded reviewers | ✅ Ready |
 | **generate-svg** | Hand-craft SVG icons, marks and diagrams as code: real viewBox, named groups, CSS-only motion | Product teams, engineers documenting systems, anyone wanting an editable vector | ✅ Ready |
+| **stress-test-plan** | Attack a plan before it is built: enumerate the ways it fails, keep the ones that are both plausible and expensive, and return the cheapest test for each | Founders, product leads, anyone about to commit a quarter to a plan | ✅ Ready |
+| **implement-spec** | Work a spec's task list forward one task at a time, test first and verified, keeping the checkbox, the evidence and the requirement status honest | Teams running agents against written specs, anyone resuming work they left a week ago | ✅ Ready |
 
 ### Deep Dives
 
@@ -41,11 +43,13 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 **[verify-done](./skills/verify-done/SPEC.md)** is test-first's other half: test-first produces the evidence, verify-done refuses the claim without it. Its proof table is the useful part, each row naming the thing people substitute for the proof, and its retry cap is what stops an autonomous loop spending a day on a fix that was never going to land.
 
+**[stress-test-plan](./skills/stress-test-plan/SPEC.md) and [implement-spec](./skills/implement-spec/SPEC.md)** sit on either side of the work. stress-test-plan runs before anything is built, and its rule is that a failure mode only earns a place if it is both plausible and expensive, which is what keeps the output short enough to act on. implement-spec runs after the plan is written, and it stops rather than editing the spec when a task reveals the spec was wrong.
+
 **[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is compose-score's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
 ## Getting Started
 
-Install all eleven as a Claude Code plugin:
+Install all seventeen as a Claude Code plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
