@@ -32,6 +32,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **generate-svg** | Hand-craft SVG icons, marks and diagrams as code: real viewBox, named groups, CSS-only motion | Product teams, engineers documenting systems, anyone wanting an editable vector | ✅ Ready |
 | **stress-test-plan** | Attack a plan before it is built: enumerate the ways it fails, keep the ones that are both plausible and expensive, and return the cheapest test for each | Founders, product leads, anyone about to commit a quarter to a plan | ✅ Ready |
 | **implement-spec** | Work a spec's task list forward one task at a time, test first and verified, keeping the checkbox, the evidence and the requirement status honest | Teams running agents against written specs, anyone resuming work they left a week ago | ✅ Ready |
+| **design-printed-part** | Parametric CadQuery for FDM: the model derives its own dimensions, refuses what cannot fit, proves fit by measured interference, then re-proves it at printed tolerances | Hardware and product teams, anyone printing a part that has to fit something bought | ✅ Ready |
+| **review-intake** | Process review feedback as a technical exchange: clarify the whole set first, verify each item against the codebase, disposition every one, push back with evidence | Teams running coding agents, engineers on review-heavy teams | ✅ Ready |
 
 ### Deep Dives
 
@@ -43,13 +45,17 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 **[verify-done](./skills/verify-done/SPEC.md)** is test-first's other half: test-first produces the evidence, verify-done refuses the claim without it. Its proof table is the useful part, each row naming the thing people substitute for the proof, and its retry cap is what stops an autonomous loop spending a day on a fix that was never going to land.
 
+**[design-printed-part](./skills/design-printed-part/SPEC.md)** is the outlier here, and the one with the most shipped material: three reference files and two runnable Python templates. Its argument is that a CAD model which exports cleanly has proved nothing, since the kernel will happily export a lid that passes through its own body. So fit is an overlap volume in cubic millimetres, the layout refuses rather than quietly shrinking a gap, and every check gets broken on purpose once before it counts as evidence.
+
+**[review-intake](./skills/review-intake/SPEC.md)** inverts the instinct about automated reviewers: they get more scrutiny, not less, because they have no context at all. Its two load-bearing steps are the ones people skip, clarifying the whole set before implementing any of it and verifying each item against the code rather than against the reviewer's confidence.
+
 **[stress-test-plan](./skills/stress-test-plan/SPEC.md) and [implement-spec](./skills/implement-spec/SPEC.md)** sit on either side of the work. stress-test-plan runs before anything is built, and its rule is that a failure mode only earns a place if it is both plausible and expensive, which is what keeps the output short enough to act on. implement-spec runs after the plan is written, and it stops rather than editing the spec when a task reveals the spec was wrong.
 
 **[tech-doc-review](./skills/tech-doc-review/SPEC.md)** is compose-score's counterpart for technical documents: same editorial-vs-knowledge-gap split, different rubric, built on precision and defensibility instead of hook and voice.
 
 ## Getting Started
 
-Install all seventeen as a Claude Code plugin:
+Install all nineteen as a Claude Code plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
