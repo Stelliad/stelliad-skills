@@ -1,6 +1,6 @@
 {
   "name": "stelliad",
-  "description": "Seventeen general-purpose skills for any team",
+  "description": "Nineteen general-purpose skills for any team",
   "owner": {
     "name": "Stelliad",
     "url": "https://github.com/Stelliad"
@@ -9,8 +9,8 @@
     {
       "name": "stelliad",
       "source": "./",
-      "description": "Seventeen skills, each shipping SKILL.md, SPEC.md, CUSTOMIZE.md and README.md",
-      "version": "0.5.0"
+      "description": "Nineteen skills, each shipping SKILL.md, SPEC.md, CUSTOMIZE.md and README.md",
+      "version": "0.6.0"
     }
   ]
 }
