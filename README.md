@@ -28,6 +28,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **compose-score** | Score a draft on seven dimensions; fix what is editorial, ask the author for what is missing | Content leads, editors, teams publishing with AI in the loop | ✅ Ready |
 | **tech-doc-review** | Score a technical document (patent, ADR, design doc, whitepaper, spec) on six dimensions; fix what's editorial, route knowledge gaps back to the author | Engineers, tech leads, anyone filing IP or writing design docs | ✅ Ready |
 | **verify-done** | Gate a completion claim behind fresh evidence: name the command that proves it, run it, read the output, then state the claim with the result | Engineering leads, teams running coding agents, anyone in a fix-and-recheck loop | ✅ Ready |
+| **find-dead-code** | Find orphaned files, unused exports, dead dependencies and commented-out code, each row carrying a confidence level, and delete nothing | Teams cutting bundle size, anyone inheriting a codebase, security-minded reviewers | ✅ Ready |
+| **generate-svg** | Hand-craft SVG icons, marks and diagrams as code: real viewBox, named groups, CSS-only motion | Product teams, engineers documenting systems, anyone wanting an editable vector | ✅ Ready |
 
 ### Deep Dives
 
