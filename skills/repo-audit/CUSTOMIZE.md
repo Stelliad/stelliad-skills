@@ -137,6 +137,24 @@ custom_checks:
     severity: warning
 
   - category: security
+    name: ai_off_switch
+    description: "A repo that calls a model can disable every model call with one flag"
+    command: |
+      git grep -qIE \
+        'anthropic|openai|bedrock-runtime|invoke_model|sagemaker-runtime|ollama|vllm|generativeai' \
+        -- ':!*.md' ':!*.lock'
+      case $? in
+        1) exit 0 ;;   # no inference in this repo, nothing to switch off
+        0) ;;          # calls a model, carry on to the flag
+        *) echo "detection could not read this repo"; exit 1 ;;
+      esac
+      git grep -q AI_ENABLED -- ':!*.md' ':!.gates.yaml' ':!.audit.yaml'
+    expect_exit_code: 0
+    applicable_phases: [Build, Validate, Scale]
+    severity: warning
+    remediation: "One flag, read once at the configuration boundary, that disables every model call and every agent tool action. Default it on, resolve it per request so a flip needs no deploy, and define what the user gets while it is off."
+
+  - category: security
     name: no_plaintext_credentials_in_config
     description: "Configuration files must not contain real credentials"
     command: |
@@ -147,6 +165,36 @@ custom_checks:
     severity: critical
     remediation: "Replace all credentials with [PLACEHOLDER] or environment variables"
 ```
+
+**Why the AI off switch is a custom check and not an eleventh category.** The
+phase applicability matrix in `SPEC.md` derives `checks_applicable` from the
+phase alone, so a core category applies to every repo at that phase. Most repos
+call no model, and a category they can never satisfy would score them down for
+a control they do not need. A custom check can carry its own condition, which
+is what the first two lines of that command are doing: no inference found, exit
+0, nothing to switch off.
+
+Three things about it are deliberate:
+
+- **Detection is wider than one SDK name.** The paths that get missed are the
+  ones that do not import the obvious package: a Bedrock streaming client, a
+  self-hosted model behind a base URL, an embeddings call that generates no
+  text. Widen the pattern to whatever your stack actually reaches for.
+- **The exclusions decide what counts.** Without them the check matches the
+  README that documents the flag and the `.audit.yaml` that declares the check,
+  so a repo with no flag passes on the mention.
+- **An error is not an answer.** `git grep` exits 1 for "no match" and 128 for
+  "could not read this repo", and a detection that redirects stderr and counts
+  lines cannot tell them apart. It reports no inference either way and the
+  check passes. That is a security check failing open, and it is not
+  hypothetical: this recipe was first written with `2>/dev/null | wc -l` and
+  tested green against a repo full of Bedrock calls whose clone had
+  `core.bare = true`. Branch on the exit status instead.
+- **Presence is all a grep can prove.** Whether the flag is resolved per
+  request rather than at import, whether it stops a provider fallback chain
+  instead of failing over, and whether anyone has ever flipped it are questions
+  a command cannot answer. They belong with the Limitations section in
+  `SPEC.md`, and they are the part a person has to check.
 
 ### 4. Gate Integration
 
