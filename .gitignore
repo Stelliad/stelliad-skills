@@ -8,3 +8,6 @@ DISTRIBUTION.md
 # Session scratch from local agent tooling, not part of the distribution
 /logs/
 /.agentics/
+
+# Agentic local config overlay (machine-specific values and secrets)
+.claude/agentic-config.local.json
