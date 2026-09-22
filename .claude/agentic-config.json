@@ -77,5 +77,10 @@
   "git": {
     "baseBranch": "main",
     "source": "origin"
+  },
+  "configuration": {
+    "claude": {
+      "skipPermissions": true
+    }
   }
 }
