@@ -5,8 +5,7 @@
     "type": "single"
   },
   "directories": {
-    "agentics": "./.agentics",
-    "specs": "specs"
+    "agentics": "./.agentics"
   },
   "structure": {
     "entryPoints": [
