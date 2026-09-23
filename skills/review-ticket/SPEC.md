@@ -21,7 +21,7 @@ anything that can edit the ticket can make the grade agree with it.
 
 | Half | Done by | Decides |
 |---|---|---|
-| Mechanical | `scripts/review-ticket.py` | Required sections per shape, flat checkbox acceptance criteria, vague verbs with no measurable target, empty or `N/A` sections, generic titles, a missing out-of-scope half, a High or Critical risk with no reason, a Critical risk with no human approval section, open `#N` dependencies, credentials in the body, an `UNFILLED` marker |
+| Mechanical | `scripts/review-ticket.py` | Required sections per shape, flat checkbox acceptance criteria, vague verbs with no measurable target in Requirements and Acceptance Criteria (whole words only), empty or `N/A` sections, an Objective, Summary or Impact under 8 words and a Why under 12, generic titles, a missing out-of-scope half, a High or Critical risk with no reason, a Critical risk with no human approval section (or one saying only `None`), open `#N` dependencies when `--repo` is given, credentials in the body, an `UNFILLED` marker |
 | Judgement | The agent running the skill | Is the objective an outcome or a task, is the reason legible without the conversation, is the scope honest, does the ticket assert things about the repo that aren't true, is any decision still open |
 
 The script says in its own output that it didn't attempt the judgement half.
@@ -76,6 +76,10 @@ canonical section name. The checker normalises those through
 optional field) as an absent section rather than an empty one. Fixtures 10 to
 12 are form submissions exactly as GitHub renders them.
 
+The shipped aliases match a set of sample task, bug and spike forms. **Those
+forms aren't shipped with this skill.** The aliases and fixtures 10 to 12 show
+the mechanism; your own forms need their own rows, per CUSTOMIZE.md.
+
 ## Splitting
 
 A ticket is more than one ticket when it has more than one independently
@@ -90,7 +94,7 @@ spec and one parent issue instead.
 
 ## The fixtures
 
-`fixtures/` holds twelve synthetic tickets, one per scenario, with the expected
+`fixtures/` holds fourteen synthetic tickets, one per scenario, with the expected
 mechanical verdict for each in `fixtures/expected.json`. They're both the
 regression suite for the checker and the worked examples `create-ticket` points
 people at, so an edit to one is an edit to reference material.
@@ -111,6 +115,10 @@ bash scripts/run-fixtures.sh
 | `08-blocked.md` | Mechanically clean, BLOCKED on judgement | PASS |
 | `09-human-approval.md` | What an agent may build against what it may run | PASS |
 | `10-form-task.md` to `12-form-spike.md` | Issue form submissions | PASS |
+| `13-critical-no-approval.md` | Critical risk, Human Approval says only `None` | FAIL |
+| `14-word-boundaries.md` | "incorrectly" in a criterion doesn't fire "correctly" | PASS |
+
+CI runs the suite on every pull request.
 
 ## Limitations
 
@@ -118,11 +126,13 @@ bash scripts/run-fixtures.sh
   wrong.
 - **The judgement half is only as good as the repo reading.** If the agent
   doesn't look, an invented dependency passes.
-- **Vague-verb detection is a word list.** It catches "improve" and "properly".
-  It won't catch a vague sentence built from specific-sounding words.
+- **Vague-verb detection is a word list.** It catches "improve" and "properly"
+  in Requirements and Acceptance Criteria. It won't catch a vague sentence built
+  from specific-sounding words, and it leaves a vague Objective to judgement.
 - **The secret check is a tripwire, not a scanner.** It catches an obvious
   paste. A real sweep needs a real secret scanner.
-- **Dependencies resolve only as `#N` on GitHub.** A dependency on another
+- **Dependencies resolve only as `#N` on GitHub, and only with `--repo`.**
+  Without it, `#N` references get a warning naming them. A dependency on another
   tracker, a document or a person gets a warning at most, and needs a human to
   confirm it's satisfied.
 - **The score compares tickets; it doesn't rank them.** Two tickets at 9 can be

@@ -33,8 +33,48 @@ pulling half-finished tickets.
 If your runner writes its own labels (claimed, blocked, needs review), list
 them in `TOOLING_LABELS`, and the checker will flag one that looks hand-applied.
 
+### Create the labels on the repo
+
+GitHub rejects `gh issue create --label` for a label the repo doesn't have, so
+`create-ticket` fails at its last step on a fresh repo. Create the set once per
+repo, with your names if you renamed them. `--force` updates a label that
+already exists instead of failing:
+
+```bash
+REPO=your-org/your-repo
+while IFS='|' read -r name color desc; do
+  gh label create "$name" --repo "$REPO" --color "$color" --description "$desc" --force
+done <<'LABELS'
+P1-urgent|b60205|Queue first
+P2-high|d93f0b|Queue order: high
+P3-medium|fbca04|Queue order: medium
+P4-low|c2e0c6|Queue order: low
+agent-ready|0e8a16|Meets the Definition of Ready; an agent may pick it up
+agent:human-required|5319e7|Carries a Human Approval gate
+agent:blocked|000000|Written by the agent runner, never by hand
+agent:needs-review|000000|Written by the agent runner, never by hand
+status:blocked|e11d21|A decision is open (Ready item 8)
+status:ready-to-merge|1d76db|PR open and green, waiting on a merge
+type:feature|a2eeef|Feature
+type:bug|d73a4a|Bug
+type:spike|d4c5f9|Spike
+type:security|b60205|Security
+type:infra|006b75|Infrastructure
+type:tech-debt|bfdadc|Tech debt
+type:docs|0075ca|Documentation
+risk:low|c2e0c6|Risk: low
+risk:medium|fbca04|Risk: medium
+risk:high|d93f0b|Risk: high
+risk:critical|b60205|Risk: critical
+LABELS
+```
+
+Drop the rows you don't use. `agent:blocked` and `agent:needs-review` only
+matter if an agent runner writes them.
+
 **If you skip it:** the priority and risk checks still work if you use the
-default names, and quietly never fire if you don't.
+default names, and quietly never fire if you don't. `create-ticket` can't apply
+a label the repo doesn't have.
 
 ## Customization 2: Your issue tracker
 
@@ -82,7 +122,9 @@ a level".
 **Where it's used:** `SHAPES`, `KNOWN_SECTIONS` and `SECTION_ALIASES` in the
 script.
 
-If your issue forms use labels like "Risk of the fix" or "What done looks like",
+The shipped `SECTION_ALIASES` rows match a set of sample issue forms that
+aren't included here, so treat them as examples rather than a match for your
+repo. If your issue forms use labels like "Risk of the fix" or "What done looks like",
 add a row to `SECTION_ALIASES` mapping the casefolded label to the canonical
 section, and add a fixture that is the form's rendered output. Form labels are
 the first thing to drift, and a mismatch shows up as a "missing required
@@ -134,6 +176,7 @@ following it:
 ## Final checklist
 
 - [ ] Label names in the script and STANDARD.md match what your queue reads
+- [ ] The labels exist on every repo tickets are filed into
 - [ ] Exactly one Ready label
 - [ ] Tracker reading and dependency resolution work, or `--file` is the path
 - [ ] Risk levels and their human approval rule written down
@@ -150,4 +193,4 @@ following it:
 | `CUSTOMIZE.md` | This file |
 | `scripts/review-ticket.py` | The mechanical half |
 | `scripts/run-fixtures.sh` | The regression suite |
-| `fixtures/` | Twelve synthetic tickets and their expected verdicts |
+| `fixtures/` | Fourteen synthetic tickets and their expected verdicts |

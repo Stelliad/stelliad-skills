@@ -47,7 +47,8 @@ Always run it. It decides everything that can be decided without judgement:
 required sections for the ticket's shape, whether the acceptance criteria are a
 flat checkbox list, vague verbs with no measurable target, an empty or `N/A`
 section, a generic title, a missing out-of-scope half, a High or Critical risk
-with no reason, an open `#N` dependency, a credential in the body.
+with no reason, an open `#N` dependency (resolved only with `--repo`; without
+it the script warns and you check), a credential in the body.
 
 A `BLOCKING` line isn't a judgement call you can overrule. Report it.
 

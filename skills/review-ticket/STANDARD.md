@@ -76,6 +76,12 @@ memory of the conversation that created the ticket understands the point.
 `Low | Medium | High | Critical`, with one line of reason for High or Critical.
 ```
 
+The narrative sections have a floor. An `## Objective` or `## Summary` under 8
+words, an `## Impact` under 8, or a `## Why` under 12 can't carry the outcome or
+the reason to someone who wasn't there, and the checker blocks on it. The floor
+catches a placeholder like "Improve login." It says nothing about whether a
+longer one is any good; that's Ready items 1 and 2.
+
 ### Conditional
 
 | Section | Include when |
@@ -182,7 +188,8 @@ always. The cheap version is two lines.
 
 `High` and `Critical` carry a one-line reason. A `Critical` ticket is never
 marked ready for an agent without a `## Human Approval` section naming what the
-agent must not execute.
+agent must not execute. A section that says only `None` or `N/A` names nothing,
+and counts as absent.
 
 **A `## Human Approval` section states intent. It doesn't enforce anything.**
 An unattended agent running with its permission prompts turned off is stopped

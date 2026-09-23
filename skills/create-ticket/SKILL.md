@@ -124,6 +124,11 @@ Only on an explicit yes:
 gh issue create --repo {owner/repo} --title "{title}" --body-file {path} --label "{labels}"
 ```
 
+GitHub refuses a label the repo doesn't have. Check with `gh label list --repo
+{owner/repo}` first, and where one is missing, say so and point at the label
+setup in [review-ticket/CUSTOMIZE.md](../review-ticket/CUSTOMIZE.md) rather than
+dropping it quietly.
+
 **Never apply the Ready label in the same breath as creating the issue.** It's
 the signal that lets an agent pick the work up, and applying it is a separate,
 deliberate act by a human who has read the ticket. Say the verdict, say the

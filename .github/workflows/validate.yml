@@ -88,3 +88,8 @@ jobs:
             fi
           done
           exit $fail
+
+      # review-ticket's fixtures are its regression suite and create-ticket's
+      # worked examples. Run here so neither can drift without a red check.
+      - name: review-ticket fixtures
+        run: bash skills/review-ticket/scripts/run-fixtures.sh
