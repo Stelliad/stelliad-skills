@@ -1,7 +1,7 @@
 {
   "name": "stelliad",
   "description": "Production-tested workflow skills for builders, CTOs, and engineering teams",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "author": {
     "name": "Sanvio Labs, Agentience"
   },

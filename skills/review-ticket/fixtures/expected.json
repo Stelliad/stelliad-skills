@@ -1,0 +1,126 @@
+{
+  "_comment": "Regression suite for review-ticket.py. 01-09 are hand-written tickets, one per scenario in the validation set. 10-12 are bodies exactly as GitHub renders a submission from an issue form (.github/ISSUE_TEMPLATE/*.yml), which is the path a human actually takes and the one that broke first: a form renders each field's label verbatim as a heading, and those labels are not the canonical section names. Any new or renamed form field needs a fixture here and a row in the checker's SECTION_ALIASES. Run with scripts/run-fixtures.sh. These double as the worked examples create-ticket/examples.md cites, so an edit here is an edit to reference material. All content is synthetic.",
+  "01-vague": {
+    "title": "Improve login",
+    "labels": [
+      "P2-high"
+    ],
+    "verdict": "FAIL",
+    "scenario": "vague feature idea",
+    "must_block": [
+      "generic",
+      "Objective is",
+      "Why is",
+      "better",
+      "out of scope"
+    ]
+  },
+  "02-well-defined": {
+    "title": "Add idle expiration to admin sessions",
+    "labels": [
+      "P2-high",
+      "risk:high",
+      "type:security"
+    ],
+    "verdict": "PASS",
+    "scenario": "well-defined feature"
+  },
+  "03-bug": {
+    "title": "Fix customer list overflow on mobile",
+    "labels": [
+      "P3-medium",
+      "type:bug",
+      "risk:low"
+    ],
+    "verdict": "PASS",
+    "scenario": "bug report"
+  },
+  "04-security": {
+    "title": "Rate limit the password reset endpoint",
+    "labels": [
+      "P1-urgent",
+      "type:security",
+      "risk:high"
+    ],
+    "verdict": "PASS",
+    "scenario": "security issue"
+  },
+  "05-infra": {
+    "title": "Enable Object Lock on the log archive bucket",
+    "labels": [
+      "P2-high",
+      "type:infra",
+      "risk:critical",
+      "agent:human-required"
+    ],
+    "verdict": "PASS",
+    "scenario": "infrastructure change with an unsatisfied prerequisite"
+  },
+  "06-tech-debt": {
+    "title": "Consolidate invoice date handling into one utility",
+    "labels": [
+      "P3-medium",
+      "type:tech-debt",
+      "risk:medium"
+    ],
+    "verdict": "PASS",
+    "scenario": "technical debt"
+  },
+  "07-spike": {
+    "title": "Decide whether to replace the message queue",
+    "labels": [
+      "P2-high",
+      "type:spike",
+      "risk:medium"
+    ],
+    "verdict": "PASS",
+    "scenario": "research spike"
+  },
+  "08-blocked": {
+    "title": "Notify users when an invoice becomes overdue",
+    "labels": [
+      "P3-medium",
+      "type:feature",
+      "risk:medium"
+    ],
+    "verdict": "PASS",
+    "scenario": "unresolved dependency and an open decision. Mechanically clean, and BLOCKED on judgement: the delivery channel is undecided and #999 does not resolve. This is the division of labour working, not the script failing"
+  },
+  "09-human-approval": {
+    "title": "Add retention-based deletion to the events table",
+    "labels": [
+      "P2-high",
+      "type:tech-debt",
+      "risk:critical",
+      "agent:human-required"
+    ],
+    "verdict": "PASS",
+    "scenario": "requires human approval"
+  },
+  "10-form-task": {
+    "title": "Add idle expiration to admin sessions",
+    "labels": [
+      "P2-high"
+    ],
+    "verdict": "PASS",
+    "scenario": "task.yml submission. Proves the form's labels normalise and that a High risk reason is read from its own field rather than from the dropdown"
+  },
+  "11-form-bug": {
+    "title": "Fix customer list overflow on mobile",
+    "labels": [
+      "P3-medium",
+      "type:bug"
+    ],
+    "verdict": "PASS",
+    "scenario": "bug.yml submission. Proves British spelling and 'Risk of the fix' resolve, and that a blank optional field rendered as _No response_ counts as absent, not empty"
+  },
+  "12-form-spike": {
+    "title": "Decide whether to replace the message queue",
+    "labels": [
+      "P2-high",
+      "type:spike"
+    ],
+    "verdict": "PASS",
+    "scenario": "spike.yml submission. Proves a spike is not required to carry acceptance criteria"
+  }
+}

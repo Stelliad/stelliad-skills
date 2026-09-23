@@ -34,6 +34,12 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **implement-spec** | Work a spec's task list forward one task at a time, test first and verified, keeping the checkbox, the evidence and the requirement status honest | Teams running agents against written specs, anyone resuming work they left a week ago | ✅ Ready |
 | **design-printed-part** | Parametric CadQuery for FDM: the model derives its own dimensions, refuses what cannot fit, proves fit by measured interference, then re-proves it at printed tolerances | Hardware and product teams, anyone printing a part that has to fit something bought | ✅ Ready |
 | **review-intake** | Process review feedback as a technical exchange: clarify the whole set first, verify each item against the codebase, disposition every one, push back with evidence | Teams running coding agents, engineers on review-heavy teams | ✅ Ready |
+| **run-gates** | Runs the conditions in a repo's `.gates.yaml` (files, patterns, commands, nested gates) and exits non-zero on any failure, so a checkpoint blocks instead of advising | Teams running coding agents, leads standardizing readiness across repos, anyone deploying from CI | ✅ Ready |
+| **review-ticket** | Grade a ticket against a 12-point Ready rubric and return READY, NEEDS_REFINEMENT or BLOCKED, naming what stops safe execution and how an oversized ticket splits. Ships the Ticket Authoring Standard and a stdlib checker with fixtures | Teams running coding agents off an issue tracker, engineering leads triaging a backlog | ✅ Ready |
+| **create-ticket** | Turn a rough idea into a ticket that passes review-ticket: read the repo first, record assumptions instead of inventing facts, split multi-outcome work, never apply the Ready label | Teams running coding agents, founders and leads turning notes into real work | ✅ Ready |
+| **recover-spec** | Work backwards from an existing codebase to the spec nobody wrote, grade every statement by what it rests on, and turn the undecided ones into questions for the system's owner | Teams inheriting a codebase, anyone before a rewrite or migration, diligence and compliance reviewers | ✅ Ready |
+| **anonymize** | Produce a shareable copy of a file or repo with client names, people, account IDs, domains and secrets consistently replaced, then check the copy for residue | Engineers open-sourcing internal code, consultants writing case studies, teams handing a repo to a vendor | ✅ Ready |
+| **review-skill** | Quarantine an outside skill, flag hidden text, credential reads and download-and-execute, sort each behaviour into covered, gap or conflict, and draft only the gaps with provenance | Anyone installing third-party skills, teams maintaining a shared harness | ✅ Ready |
 
 ### Deep Dives
 
@@ -55,7 +61,7 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 
 ## Getting Started
 
-Install all nineteen as a Claude Code plugin:
+Install all twenty-five as a Claude Code plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
