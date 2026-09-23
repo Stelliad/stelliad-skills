@@ -36,7 +36,9 @@ decides a gate passed by reading files itself.
    Add `--json` when another tool will read the result.
 4. **Report by exit code.** `0` passed. `1` blocked: show each failed
    condition with its fix line. `2` the gate couldn't be evaluated (no gates
-   file, unknown gate, bad YAML): say so, and offer to help write one.
+   file, unknown gate, bad YAML, or a malformed gate such as a misspelled
+   `requires:`): show the reason the script printed, and offer to fix the file
+   or help write one. A `2` is never a pass.
 5. **Remediate.** For each failure, say what's missing, whether you can fix it
    now (create a file, add a config line) or it needs a person, then re-run
    the gate. The re-run is the evidence, not your edit.

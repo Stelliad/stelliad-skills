@@ -19,8 +19,20 @@ Task list:          <e.g. TASKS.md, a project board, a checklist in the ticket>
 Where they live:    <e.g. specs/{id}-{slug}/>
 ```
 
-**If you skip it:** the skill looks for the shipped names and stops if they are
-not there.
+**If you skip it:** the skill looks for the shipped names, `SPEC.md`,
+`PLAN.md` and `TASKS.md` in one spec folder, and stops if they are not there.
+`TASKS.md` is a checklist, one task per line, each carrying its ID, the
+requirement IDs it serves, the task IDs it depends on, and its verification
+command:
+
+```
+- [ ] T003 Reject expired tokens (REQ-004; depends: T001, T002)
+      verify: uv run pytest tests/test_auth.py -k expired
+```
+
+A spec recovered from existing code with
+[recover-spec](../recover-spec/SKILL.md) arrives as a `SPEC.md` only: write the
+plan and the task list before running this.
 
 ## Customization 2: The ID scheme
 

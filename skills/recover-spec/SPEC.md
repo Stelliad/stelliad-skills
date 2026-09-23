@@ -29,9 +29,16 @@ Two routes, and the choice isn't a preference.
 | You're reading a system you won't commit to: diligence, evaluation, a vendor's product, an audit | A dated reading, outside the governed tree (default `docs/readings/system-spec-{YYYYMMDD}.md`, bind yours in CUSTOMIZE.md) |
 
 The test is whether the document will **define what gets built** or **record
-what you found**. Default to a reading when it's genuinely unclear. A reading
+what you found**. Run with neither `--as-spec` nor `--as-reading` and you get a
+reading. Default to a reading when it's genuinely unclear, too. A reading
 can be promoted into the repo later; a spec that never governed anything is just
 a reading in the wrong place.
+
+A `--subsystem` run follows the same route as the whole-system document: into
+`docs/specs/{name}.md` beside a governing `SPEC.md`, or beside the reading
+(default `docs/readings/{name}-spec-{YYYYMMDD}.md`) when you're recording what
+you found. A subsystem reading never lands in `docs/specs/`, because that
+directory governs.
 
 **Never write both.** Two copies drift. If a repo already carries a `SPEC.md`,
 this skill doesn't overwrite it: it reads it as an *intended* source and reports
@@ -254,7 +261,7 @@ three questions.
 | [secret-scan](../secret-scan/SKILL.md) | Run it first on any inherited repo. A secret found mid-recovery is a rotation event, not a footnote |
 | [generate-readme](../generate-readme/SKILL.md) | A README orients a newcomer. A spec governs the build. A README is never a substitute |
 | [repo-audit](../repo-audit/SKILL.md), [review-principles](../review-principles/SKILL.md) | Grade how the code is built. This skill records what it does. Neither answers the other |
-| [implement-spec](../implement-spec/SKILL.md) | Downstream, once the undecideds are answered and the settled requirements become a task list with verification commands |
+| [implement-spec](../implement-spec/SKILL.md) | Downstream, once the undecideds are answered and the settled requirements become a task list with verification commands. You write that plan and task list; nothing here generates them. Its CUSTOMIZE.md sections 1 and 2 give the shape it reads |
 
 ## When to run
 

@@ -16,6 +16,8 @@ Spec route:        <e.g. SPEC.md at repo root, or docs/SPEC.md>
 Subsystem specs:   <e.g. docs/specs/{name}.md>
 Reading route:     <e.g. docs/readings/system-spec-{YYYYMMDD}.md, or a
                     folder outside the repo for systems you don't hold>
+Subsystem reading: <e.g. docs/readings/{name}-spec-{YYYYMMDD}.md, beside the
+                    reading, never in the subsystem spec folder>
 Question list:     <e.g. beside the spec as QUESTIONS.md, or an issue per question>
 ```
 
@@ -24,8 +26,10 @@ governs) and a reading (records what you found, lives wherever your team keeps
 analysis). If your team does diligence on systems it never gets write access
 to, the reading route has to be outside the target repo.
 
-**If you skip it:** specs go to `SPEC.md` at the root and readings to
-`docs/readings/`, which assumes you can write to the repo in both cases.
+**If you skip it:** a run with no mode flag writes a reading. Specs go to
+`SPEC.md` at the root with subsystems in `docs/specs/`, and readings, subsystem
+readings included, go to `docs/readings/`. Both assume you can write to the
+repo.
 
 ## Customization 2: Grade markers
 
