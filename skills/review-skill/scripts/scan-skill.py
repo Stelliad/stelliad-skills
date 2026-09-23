@@ -12,13 +12,19 @@ It reads files as bytes and decodes them itself. It never imports, executes,
 sources or follows anything in the folder, and it never touches the network.
 
 Usage:
-    scan-skill.py incoming/<skill-name>
-    scan-skill.py incoming/<skill-name> --json
+    scan-skill.py <quarantine>/<skill-name>
+    scan-skill.py <quarantine>/<skill-name> --json
+    scan-skill.py <quarantine>/<skill-name> --fail-on REVIEW
 
 Exit codes:
-    0  nothing flagged (the judgement pass still has to happen)
-    1  at least one finding at HIGH or REVIEW
-    2  could not read the folder
+    0  nothing at or above the --fail-on severity (default HIGH). The
+       judgement pass still has to happen
+    1  at least one finding at or above the --fail-on severity
+    2  could not read the folder, or the folder is itself a symlink
+
+Everything printed is escaped: control characters, C1 controls, invisible and
+format characters are shown as <U+XXXX>, so a hostile filename or description
+can't drive your terminal.
 
 A clean run is not a verdict. Patterns catch the obvious and the lazy. A skill
 written to evade a regex will evade this one, which is why SPEC.md makes you
@@ -74,6 +80,14 @@ INVISIBLE = {
 # makes them a way to smuggle a whole sentence past a human reader.
 TAG_RANGE = (0xE0000, 0xE007F)
 
+# Files and folders another agent loads as instructions on its own. A skill
+# has no reason to ship one, and reading the folder can be enough to load it.
+AGENT_CONFIG_FILES = {"claude.md", "claude.local.md", "agents.md", "gemini.md"}
+AGENT_CONFIG_DIRS = {".claude", ".agents", ".codex", ".kiro", ".cursor"}
+
+# Home directories written any of the ways a skill might spell them.
+HOME = r"(~|\$HOME|\$\{HOME\}|/root|/home/[^/\s]+|/Users/[^/\s]+)"
+
 # (severity, category, compiled pattern). Case-insensitive.
 PATTERNS = [
     # Download and execute.
@@ -90,18 +104,32 @@ PATTERNS = [
     ("REVIEW", "dynamic execution", r"\b(eval|exec)\s*\("),
     ("REVIEW", "dynamic execution", r"\bsubprocess\.[a-z_]+\([^\n]*shell\s*=\s*True"),
     ("REVIEW", "dynamic execution", r"\bchild_process\b"),
-    ("REVIEW", "decode then run", r"base64\s+(-d|--decode)[^\n]*\|\s*(ba|z)?sh\b"),
+    ("HIGH", "download-and-execute",
+     r"\b(curl|wget)\b[^\n]*(&&|;)\s*(sudo\s+)?((ba|z)?sh|python3?|node|source|\.)\s+\S"),
+    ("HIGH", "decode then run",
+     r"base64\s+(-d|-D|--decode)\b[^\n]*\|\s*(sudo\s+)?((ba|z)?sh|python3?|node|perl|ruby)\b"),
 
     # Credentials.
-    ("HIGH", "credential access", r"(^|[\s\"'/=(])\.env(\.[a-z]+)?\b"),
-    ("HIGH", "credential access", r"~/\.ssh|\bid_(rsa|ed25519|ecdsa)\b"),
-    ("HIGH", "credential access", r"~/\.aws/credentials|~/\.config/gh/hosts|~/\.netrc|~/\.npmrc|~/\.pypirc|~/\.docker/config\.json|~/\.kube/config"),
+    # Reading, printing or sending a .env file is HIGH. Any other mention of
+    # one (creating it, ignoring it, finding it) is REVIEW. The committed
+    # templates (.env.example and friends) exist to hold no secrets.
+    ("HIGH", "credential access",
+     r"\b(cat|less|more|head|tail|source|read|grep|base64|xxd|strings|bat)\b[^\n|;&]{0,40}"
+     r"[\s\"'/=(@]\.env(?!\.(example|sample|template|dist)\b)(\.[a-z]+)?\b"),
+    ("HIGH", "credential access", r"(@|<\s*)\.env(?!\.(example|sample|template|dist)\b)\b"),
+    ("REVIEW", "credential access",
+     r"(^|[\s\"'/=(*])\.env(?!\.(example|sample|template|dist)\b)(\.[a-z]+)?\b"),
+    ("HIGH", "credential access", HOME + r"/\.ssh\b|\bid_(rsa|ed25519|ecdsa)\b"),
+    ("HIGH", "credential access",
+     HOME + r"/(\.aws/credentials|\.config/gh/hosts|\.netrc|\.npmrc|\.pypirc|\.docker/config\.json|\.kube/config)"),
     ("HIGH", "credential access", r"\bsecurity\s+find-(generic|internet)-password\b"),
     ("HIGH", "credential access", r"\bgh\s+auth\s+token\b"),
     ("HIGH", "credential access", r"\bsecretsmanager\s+get-secret-value\b|\bssm\s+get-parameters?\b[^\n]*--with-decryption"),
     ("REVIEW", "credential access", r"\b(printenv|env)\s*(\||>|$)"),
     ("REVIEW", "credential access", r"\bos\.environ\b|\bprocess\.env\b"),
-    ("REVIEW", "credential access", r"\b(api[_-]?key|secret|password|private[_ -]key|access[_ -]token)\b"),
+    # Letter boundaries, not word boundaries: AWS_SECRET_ACCESS_KEY has to match.
+    ("REVIEW", "credential access",
+     r"(?<![a-z0-9])(api[_-]?key|secret|password|private[_ -]key|access[_ -]token)(?![a-z0-9])"),
 
     # Writes outside the repo, persistence, privilege.
     ("HIGH", "writes outside the repo", r">>?\s*~?/?\S*\.(bashrc|zshrc|profile|bash_profile|zprofile)\b"),
@@ -113,9 +141,10 @@ PATTERNS = [
     ("REVIEW", "writes outside the repo", r"~/\.claude/|~/\.codex/|~/\.kiro/|settings(\.local)?\.json"),
 
     # Instructions aimed at the agent rather than the task.
-    ("HIGH", "override attempt", r"\b(ignore|disregard|forget|override)\b[^\n]{0,40}\b(previous|prior|above|earlier|all|your|system|other)\b[^\n]{0,20}\b(instructions?|rules?|prompts?|guidelines?)\b"),
+    ("HIGH", "override attempt", r"\b(ignore|disregard|forget|override)\b[^\n]{0,40}\b(previous|prior|above|earlier|all|your|system|other|the|in)\b[^\n]{0,20}\b(instructions?|rules?|prompts?|guidelines?)\b"),
     ("HIGH", "override attempt", r"\b(do not|don't|never)\s+(tell|inform|mention|show|ask)\b[^\n]{0,30}\b(the\s+)?(user|human|operator)\b"),
-    ("HIGH", "override attempt", r"--no-verify\b|\bskip\s+(the\s+)?(hooks?|checks?|gates?|tests?|review)\b"),
+    ("HIGH", "override attempt", r"--no-verify\b|\bskip\s+(the\s+)?(hooks?|checks?|gates?)\b"),
+    ("REVIEW", "override attempt", r"\bskip\s+(the\s+)?(tests?|review)\b"),
     ("HIGH", "override attempt", r"\b(bypass|disable|turn off)\b[^\n]{0,30}\b(hooks?|guards?|gates?|sandbox|permissions?|safety|review)\b"),
     ("REVIEW", "override attempt", r"\byou are now\b|\bnew instructions\b|\bsystem prompt\b|\bdeveloper mode\b"),
     ("REVIEW", "override attempt", r"\b(AGENTS|CLAUDE)\.md\b|\bsteering\b"),
@@ -124,6 +153,7 @@ PATTERNS = [
 
     # Exfiltration shapes.
     ("HIGH", "possible exfiltration", r"\bcurl\b[^\n]*(-d|--data(-binary|-raw)?|-F|--form|-T|--upload-file)\b[^\n]*(\$\(|`|@)"),
+    ("HIGH", "possible exfiltration", r"\|\s*(nc|ncat|netcat|socat)\b|/dev/(tcp|udp)/"),
     ("REVIEW", "possible exfiltration", r"\b(webhook|ngrok|requestbin|pipedream|pastebin|transfer\.sh)\b"),
 ]
 COMPILED = [(s, c, re.compile(p, re.IGNORECASE)) for s, c, p in PATTERNS]
@@ -138,20 +168,29 @@ BROAD_WORDS = re.compile(
 SEV_ORDER = {"HIGH": 0, "REVIEW": 1, "INFO": 2}
 
 
+def is_hidden(cp):
+    """True for anything that shouldn't reach a terminal as itself."""
+    if cp < 32 or cp == 0x7F or 0x80 <= cp <= 0x9F:
+        return True
+    if cp in INVISIBLE or TAG_RANGE[0] <= cp <= TAG_RANGE[1]:
+        return True
+    return unicodedata.category(chr(cp)) == "Cf"
+
+
+def esc(s):
+    """Escape a string for printing. Used on everything the skill controls."""
+    if s is None:
+        return s
+    return "".join("<U+%04X>" % ord(ch) if is_hidden(ord(ch)) else ch for ch in str(s))
+
+
 def finding(sev, cat, path, line, detail):
     return {"severity": sev, "category": cat, "file": path, "line": line,
             "detail": detail}
 
 
 def printable_preview(s, limit=80):
-    out = []
-    for ch in s[:limit]:
-        cp = ord(ch)
-        if cp < 32 or cp in INVISIBLE or TAG_RANGE[0] <= cp <= TAG_RANGE[1]:
-            out.append("<U+%04X>" % cp)
-        else:
-            out.append(ch)
-    return "".join(out) + ("..." if len(s) > limit else "")
+    return esc(s[:limit]) + ("..." if len(s) > limit else "")
 
 
 def line_of(text, index):
@@ -204,10 +243,13 @@ def scan_text(rel, text, findings, urls):
             findings.append(finding("HIGH", "invisible characters", rel, n,
                                     "%d found: %s" % (len(seen), ", ".join(uniq))))
 
-    # HTML comments render as nothing in most viewers and are read in full by a model.
+    # HTML comments render as nothing in most viewers and are read in full by a
+    # model. Three or more words can carry an instruction, so that's HIGH. A
+    # one- or two-word marker (<!-- toc -->) is REVIEW.
     for m in HTML_COMMENT_RE.finditer(text):
         body = " ".join(m.group(1).split())
-        findings.append(finding("REVIEW", "html comment", rel, line_of(text, m.start()),
+        sev = "HIGH" if len(body.split()) >= 3 else "REVIEW"
+        findings.append(finding(sev, "html comment", rel, line_of(text, m.start()),
                                 printable_preview(body) or "<empty>"))
 
     # Long base64 runs. Decoded preview so a human can see what it says.
@@ -246,12 +288,15 @@ def scan(root):
         dirnames.sort()
         for d in list(dirnames):
             full = os.path.join(dirpath, d)
+            rel = os.path.relpath(full, root)
             if os.path.islink(full):
-                rel = os.path.relpath(full, root)
                 inventory.append({"file": rel, "kind": "symlink", "size": 0})
                 findings.append(finding("HIGH", "symlink", rel, 0,
                                         "directory symlink to %s" % os.readlink(full)))
                 dirnames.remove(d)
+            elif d.lower() in AGENT_CONFIG_DIRS:
+                findings.append(finding("HIGH", "agent config", rel, 0,
+                                        "an agent loads this folder on its own; a skill has no reason to ship one"))
         for name in sorted(filenames):
             full = os.path.join(dirpath, name)
             rel = os.path.relpath(full, root)
@@ -261,6 +306,16 @@ def scan(root):
                 findings.append(finding("HIGH", "symlink", rel, 0,
                                         "points to %s; never follow it" % os.readlink(full)))
                 continue
+            if not stat.S_ISREG(st.st_mode):
+                # A FIFO blocks the read forever; a device or socket has no
+                # business in a skill. Report it and never open it.
+                inventory.append({"file": rel, "kind": "special", "size": 0})
+                findings.append(finding("HIGH", "special file", rel, 0,
+                                        "not a regular file (FIFO, device or socket); not opened"))
+                continue
+            if name.lower() in AGENT_CONFIG_FILES:
+                findings.append(finding("HIGH", "agent config", rel, 0,
+                                        "an agent loads this file as instructions when it reads the folder"))
             with open(full, "rb") as fh:
                 raw = fh.read()
             ext = os.path.splitext(name)[1].lower()
@@ -290,9 +345,11 @@ def scan(root):
         findings.append(finding("REVIEW", "trigger description", "SKILL.md", 0,
                                 "no description found in frontmatter"))
     else:
+        # INFO: a word list can't judge scope. The human reads the description,
+        # which is printed in full above the findings.
         broad = sorted(set(w.lower() for w in BROAD_WORDS.findall(description)))
         if broad or len(description) < 40:
-            findings.append(finding("REVIEW", "trigger description", "SKILL.md", 0,
+            findings.append(finding("INFO", "trigger description", "SKILL.md", 0,
                                     "check it only fires where it belongs; broad words: %s"
                                     % (", ".join(broad) or "none, but it is very short")))
     findings.sort(key=lambda f: (SEV_ORDER[f["severity"]], f["category"], f["file"], f["line"]))
@@ -301,15 +358,15 @@ def scan(root):
 
 
 def render(report):
-    out = ["Skill folder: %s" % report["root"], "", "Files:"]
+    out = ["Skill folder: %s" % esc(report["root"]), "", "Files:"]
     for item in report["inventory"]:
         flag = " (executable)" if item.get("executable") else ""
-        out.append("  %-7s %8d  %s%s" % (item["kind"], item["size"], item["file"], flag))
-    out += ["", "Trigger description:", "  %s" % (report["description"] or "<none>"), ""]
+        out.append("  %-7s %8d  %s%s" % (item["kind"], item["size"], esc(item["file"]), flag))
+    out += ["", "Trigger description:", "  %s" % (esc(report["description"]) or "<none>"), ""]
     if report["urls"]:
         out.append("URLs (%d):" % len(report["urls"]))
         for u, where in sorted(report["urls"].items()):
-            out.append("  %s  [%s]" % (u, ", ".join(where[:3]) + (" ..." if len(where) > 3 else "")))
+            out.append("  %s  [%s]" % (esc(u), esc(", ".join(where[:3])) + (" ..." if len(where) > 3 else "")))
         out.append("")
     if not report["findings"]:
         out.append("No mechanical findings. Read every file anyway.")
@@ -319,8 +376,8 @@ def render(report):
         counts[f["severity"]] = counts.get(f["severity"], 0) + 1
     out.append("Findings: " + ", ".join("%s %d" % (s, counts[s]) for s in ("HIGH", "REVIEW", "INFO") if s in counts))
     for f in report["findings"]:
-        loc = f["file"] + (":%d" % f["line"] if f["line"] else "")
-        out.append("  %-6s %-24s %s  %s" % (f["severity"], f["category"], loc, f["detail"]))
+        loc = esc(f["file"]) + (":%d" % f["line"] if f["line"] else "")
+        out.append("  %-6s %-24s %s  %s" % (f["severity"], f["category"], loc, esc(f["detail"])))
     return "\n".join(out)
 
 
@@ -328,17 +385,27 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Mechanical scan of a quarantined skill folder.")
     ap.add_argument("folder")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--fail-on", choices=("HIGH", "REVIEW", "INFO"), default="HIGH",
+                    help="lowest severity that makes the exit code 1 (default HIGH)")
     args = ap.parse_args(argv)
-    if not os.path.isdir(args.folder):
-        print("not a directory: %s" % args.folder, file=sys.stderr)
+    folder = args.folder.rstrip("/") or "/"
+    if os.path.islink(folder):
+        # Scanning through a link walks whatever it points at, which could be
+        # your home directory. Refuse rather than follow.
+        print("refusing a symlinked folder: %s" % esc(args.folder), file=sys.stderr)
+        return 2
+    if not os.path.isdir(folder):
+        print("not a directory: %s" % esc(args.folder), file=sys.stderr)
         return 2
     try:
-        report = scan(args.folder)
+        report = scan(folder)
     except OSError as exc:
-        print("could not read %s: %s" % (args.folder, exc), file=sys.stderr)
+        print("could not read %s: %s" % (esc(args.folder), esc(exc)), file=sys.stderr)
         return 2
+    # json.dumps escapes every control and non-ASCII character by default.
     print(json.dumps(report, indent=2) if args.json else render(report))
-    return 1 if any(f["severity"] in ("HIGH", "REVIEW") for f in report["findings"]) else 0
+    limit = SEV_ORDER[args.fail_on]
+    return 1 if any(SEV_ORDER[f["severity"]] <= limit for f in report["findings"]) else 0
 
 
 if __name__ == "__main__":

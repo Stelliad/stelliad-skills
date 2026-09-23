@@ -10,7 +10,12 @@ you worked with, cloud account IDs, internal domains, bucket names, rates.
 This skill produces a copy with those identifiers replaced and then checks the
 copy. It makes three commitments:
 
-1. **The original is never modified.** Every write lands in `_anonymized/`.
+1. **The original is never modified.** Every write lands in `_anonymized/`,
+   with two exceptions, neither of which touches a file being anonymized:
+   the `.gitignore` lines added before the first run (see *The map is a
+   decoder ring*), and `replacements.yaml`, which is written beside
+   `_anonymized/` and never inside it. Send the output to a directory outside
+   the repository and the repository gets neither.
 2. **Replacements are deterministic and consistent.** One concept, one
    replacement, everywhere, from a map a human approved.
 3. **The copy is checked after the pass.** A residue scan runs against the

@@ -29,9 +29,11 @@ in what you already have, rewritten in your own conventions.
 
 ## The procedure
 
-1. **Quarantine.** Copy the skill into `incoming/<skill-name>/`, never into a
-   folder your agent loads skills from. Keep `incoming/` out of git. Run
-   nothing in it: no scripts, no installs, no setup step.
+1. **Quarantine.** Copy the skill into a folder outside your repository, such
+   as `~/skill-quarantine/<skill-name>/`, and never into a folder your agent
+   loads skills from. Inside your working tree, reading a stray `CLAUDE.md` or
+   `AGENTS.md` can be enough for the agent to load it. Run nothing in the
+   quarantine: no scripts, no installs, no setup step.
 2. **Record provenance.** Source URL, the exact commit or release, and the
    licence. No licence means you can read it and can't copy it. Say so and
    carry on read-only.
@@ -45,6 +47,7 @@ in what you already have, rewritten in your own conventions.
    - Downloading and running code (`curl ... | sh`, a package runner pointed at a URL, `eval`)
    - Writes outside your repo: home directory, shell profiles, agent settings, scheduled jobs
    - Hidden text: HTML comments, zero-width or bidi characters (U+200B, U+202E and friends), base64 blobs
+   - Files another agent loads on its own (`CLAUDE.md`, `AGENTS.md`, a `.claude/` folder), symlinks, FIFOs and devices
    - A trigger description so broad it would fire on requests it has no business in
 5. **Compare** each behaviour with your harness: **covered** (a skill, rule or
    gate you have already does it), **gap** (nothing does), or **conflict** (it

@@ -24,7 +24,7 @@ The agent reads [SPEC.md](./SPEC.md) and does the work. The mechanical sweep is
 a standard-library Python script you can run on its own:
 
 ```bash
-python3 scripts/scan-skill.py incoming/<skill-name>
+python3 scripts/scan-skill.py ~/skill-quarantine/<skill-name>
 ```
 
 **Working by hand:** follow [SPEC.md](./SPEC.md) step by step.
@@ -33,7 +33,8 @@ your agent tool's skill paths.
 
 ## What it does
 
-Copies the outside skill into a quarantine folder your agent never loads from.
+Copies the outside skill into a quarantine folder outside your repository,
+where your agent never loads from.
 Records the source, the commit and the licence. Reads every file, scripts
 included, and flags anything that reaches for credentials, downloads and runs
 code, writes outside your repo, hides text, or tells the agent to skip your

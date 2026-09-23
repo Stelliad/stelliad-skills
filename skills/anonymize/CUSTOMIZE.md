@@ -113,18 +113,32 @@ version control can see it.
 **Where it's used:** SPEC.md, *Procedure*, step 6.
 
 Bind the check to real commands so it runs the same way every time. A minimal
-version with standard tools:
+version in bash with grep, find and [mikefarah yq](https://github.com/mikefarah/yq)
+v4 (the Go one; the Python `yq` wrapper takes different syntax and won't run
+these). Every line works with both BSD and GNU grep:
 
 ```bash
 OUT=_anonymized
+# The real values: every leaf key in the map, never the section names
+# (identity, people, mode) or the secrets block, which would match ordinary words.
+keys() { yq 'del(.secrets) | .. | select(tag == "!!map") | to_entries | .[] | select(.value | tag == "!!str") | .key' replacements.yaml; }
 # 1. Every original value from the map, contents and filenames
-grep -rniF -f <(yq '.. | select(tag == "!!map") | keys | .[]' replacements.yaml) "$OUT"
-find "$OUT" | grep -iF -f <(yq '.. | select(tag == "!!map") | keys | .[]' replacements.yaml)
-# 2. 12-digit numbers that are not the placeholder
-grep -rnoE '\b[0-9]{12}\b' "$OUT" | grep -v 123456789012
-# 3. Emails and domains outside the example ranges
-grep -rnoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' "$OUT" | grep -viE '@example\.(com|org)'
+grep -rniF -f <(keys) "$OUT"
+find "$OUT" | grep -iF -f <(keys)
+# 2. 12-digit numbers that are not the placeholder, including inside identifiers (acct_...)
+grep -rnoE '(^|[^0-9])[0-9]{12}([^0-9]|$)' "$OUT" | grep -v 123456789012
+# 3. Emails outside the example domains (anchored, so example.com.evil.io still shows)
+grep -rnoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' "$OUT" | grep -viE '@example\.(com|org|net)$'
+# 4. Hostnames outside the reserved names
+grep -rnoiE '([a-z0-9-]+\.)+(com|net|org|io|ai|dev|app|co|cloud|internal|local|corp|lan)([^a-z0-9-]|$)' "$OUT" \
+  | grep -viE '(^|[.:/@])example\.(com|org|net)([^a-z0-9.-]|$)'
+# 5. Home-directory paths that are not the placeholder
+grep -rnE '/Users/[^/[:space:]]+|/home/[^/[:space:]]+|[A-Za-z]:\\Users\\' "$OUT" | grep -vE '/home/user(/|$)'
 ```
+
+Check 4 also lists the public services you depend on. Filter them with your
+allowlist from Customization 3 (`grep -viFf ~/.config/anonymize/allow.txt`)
+rather than widening the regex.
 
 Add a line for each seed-list source from Customization 1 and each pattern your
 stack produces: your cloud's resource ID shape, your internal hostname
@@ -140,9 +154,13 @@ and the shipped patterns. It won't know your hostname convention.
 Decide what happens to images, PDFs and office documents before you run it:
 
 - **Leave them out** of the copy (the default, and the safe one)
-- **Strip metadata** with a dedicated tool, for example `exiftool -all= <file>`
-  for images, then have a person look at each one for visible names and
-  screenshots of real screens
+- **Strip metadata** with a dedicated tool, on the copy in `_anonymized/` and
+  never on the original, for example
+  `exiftool -all= -overwrite_original _anonymized/<file>` for images. Without
+  `-overwrite_original`, exiftool leaves `<file>_original` beside the result
+  with every field it just stripped, inside the folder you're about to share.
+  Then have a person look at each image for visible names and screenshots of
+  real screens
 - **Regenerate** diagrams and screenshots from the anonymized source
 
 **If you skip it:** binaries are dropped from the copy and listed in the report,
