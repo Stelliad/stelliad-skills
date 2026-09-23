@@ -1,0 +1,75 @@
+# Sample .gates.yaml: four core repo gates plus one project gate.
+#
+# Copy this to your repository root and edit what each gate CHECKS.
+# Keep the four core NAMES: they are the vocabulary every repo shares,
+# and project gates compose them with `- gate:`.
+#
+# Every `command` runs through /bin/sh from the repository root, with your
+# environment and credentials. Read a gates file before you run it.
+
+gates:
+  repo_baseline:
+    description: "The repo meets the security and quality floor"
+    requires:
+      - file_exists: ".gitignore"
+      - file_exists: ".pre-commit-config.yaml"
+      - file_exists: ".github/workflows/ci.yml"
+      - file_contains:
+          path: ".pre-commit-config.yaml"
+          pattern: "detect-secrets|detect-private-key|gitleaks"
+          description: "Secret detection configured in pre-commit"
+      - command:
+          description: "No .env file tracked"
+          run: "git ls-files --error-unmatch .env"
+          exit_code: 1   # git exits 1 when the file is NOT tracked, which is what we want
+
+  build_ready:
+    description: "Work can happen here: manifest, lint and tests all run"
+    requires:
+      - gate: repo_baseline
+      - command:
+          description: "Package manifest exists"
+          run: "test -f pyproject.toml || test -f package.json || test -f Cargo.toml || test -f go.mod"
+      - command:
+          description: "Linter passes"
+          run: "make lint"          # replace with your one-command lint
+      - command:
+          description: "Tests pass"
+          run: "make test"          # replace with your one-command test run
+          timeout: 900
+
+  deploy_ready:
+    description: "Safe to push to an environment (runs BEFORE the deploy)"
+    requires:
+      - gate: build_ready
+      - command:
+          description: "No high or critical dependency advisories"
+          run: "make audit"         # npm audit --audit-level=high, pip-audit, cargo audit, ...
+      - command:
+          description: "CI green on the current commit"
+          run: 'test "$(gh run list --commit "$(git rev-parse HEAD)" --limit 1 --json conclusion -q ".[0].conclusion")" = success'
+
+  release_verified:
+    description: "The deployed environment actually works (runs AFTER the deploy)"
+    requires:
+      - gate: deploy_ready
+      - command:
+          description: "Health endpoint answers"
+          # Read the URL from somewhere that follows redeploys, never a pasted
+          # ephemeral hostname. DEPLOY_URL is set by your pipeline.
+          run: 'curl -sf "${DEPLOY_URL:?set DEPLOY_URL}/health"'
+      - command:
+          description: "Smoke suite passes against the deployed environment"
+          run: "make smoke"
+
+  # A project gate: named for the event it guards, composes a core gate,
+  # then adds only what is specific to this project.
+  prod_deploy:
+    description: "Production deploy for a service handling personal data"
+    requires:
+      - gate: release_verified
+      - file_exists: "docs/runbook.md"
+      - file_contains:
+          path: "docs/runbook.md"
+          pattern: "^## Rollback"
+          description: "Runbook has a rollback section"
