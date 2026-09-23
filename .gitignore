@@ -5,7 +5,6 @@ DISTRIBUTION.md
 # Per-contributor review backend config (API keys, SKILL_REVIEW_*), never public
 .env.local
 local.justfile
-.vscode
 
 # Session scratch from local agent tooling, not part of the distribution
 /logs/
@@ -13,4 +12,3 @@ local.justfile
 
 # Agentic local config overlay (machine-specific values and secrets)
 .claude/agentic-config.local.json
-
