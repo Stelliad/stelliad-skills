@@ -1,6 +1,6 @@
 # Setup Guide: Skill Quality Gates
 
-**Last Updated: 2026-09-17 08:06**
+**Last Updated: 2026-09-23 11:17**
 
 > **This is for contributors to this repository, not for people using the skills.**
 >
@@ -66,7 +66,49 @@ root=$(git rev-parse --show-toplevel)
 # then whatever else you want to run
 ```
 
-## 2. Branching and Pull Requests
+## 2. Local Recipes with `just` (optional)
+
+[`just`](https://github.com/casey/just) is a command runner: a `justfile` holds
+named recipes you invoke as `just <recipe>`. This repository has one, and it is
+deliberately almost empty. The whole of it declares a single optional module:
+
+```just
+mod? local 'local.justfile'
+```
+
+**Nothing that gates a change goes through `just`.** The boundary check, the
+hooks and CI all call the scripts directly, exactly as the rest of this guide
+shows them, so you never have to install `just` to contribute here.
+
+What the module buys you is somewhere to keep your own shortcuts. Put a
+`local.justfile` next to the root `justfile`, fill it with whatever you run all
+day, and reach those recipes under the `local` prefix:
+
+```bash
+cat > local.justfile <<'EOF'
+check:
+    bash scripts/validate-skills.sh
+
+review skill:
+    scripts/skill-review skills/{{skill}}
+EOF
+
+just --list          # the `local` module appears here
+just --list local    # the recipes inside it
+just local check     # run one
+just local review review-principles
+```
+
+`local.justfile` is gitignored, so those recipes stay on your machine and never
+turn up in a pull request or in someone else's clone. The `?` in `mod?` is what
+makes the module optional: with no `local.justfile` present, `just --list` is
+simply empty and nothing errors.
+
+Modules became stable in `just` 1.31.0, so a `just` older than that will reject
+the root justfile. Install or upgrade with `brew install just`,
+`cargo install just`, or your distribution's package.
+
+## 3. Branching and Pull Requests
 
 Changes reach main through a pull request. The `pre-commit` hook refuses a
 commit made while main is checked out, because at that point the fix costs one
@@ -92,9 +134,9 @@ git config stelliad.allowMainCommits true
 
 That setting lifts only the main-branch guards. `--no-verify` also gets past
 them, but it skips every other hook too, including the boundary check and its
-secrets scan, so keep it for a broken hook setup (see section 5).
+secrets scan, so keep it for a broken hook setup (see section 6).
 
-## 3. Turn On the Model Review (optional)
+## 4. Turn On the Model Review (optional)
 
 `scripts/skill-review` asks a model to read a skill for the things a pattern
 matcher cannot catch. It is **off until you name a backend** with
@@ -162,7 +204,7 @@ Check the wiring before you commit anything:
 scripts/skill-review skills/review-principles
 ```
 
-## 4. What the Review Checks
+## 5. What the Review Checks
 
 Every text file in the skill folder is sent, not only the four core docs. Files
 inside a dot-directory are left out, and anything that is not text is named on
@@ -194,7 +236,7 @@ be cut off again on the next commit. If a skill hits that limit, split it.
 The pass condition is deliberately strict. A response that mentions the phrase
 inside a sentence, or adds anything around it, is treated as a finding.
 
-## 5. Bypassing the Hooks (Last Resort)
+## 6. Bypassing the Hooks (Last Resort)
 
 `--no-verify` skips every hook: the main-branch guards, the boundary check
 including the secrets scan, and the review.
@@ -206,7 +248,7 @@ git commit --no-verify -m "msg"
 CI still runs the boundary check on the pull request, so this buys you a later
 failure, not a pass. Use it for a broken hook setup, not to get past a finding.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 **Nothing happened when I committed a skill change.** Either
 `git config core.hooksPath` is not `.githooks`, or `SKILL_REVIEW_BACKEND` is
