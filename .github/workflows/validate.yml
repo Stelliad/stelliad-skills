@@ -82,7 +82,9 @@ jobs:
           for d in skills/*/; do
             d="${d%/}"
             [ -f "$d/SKILL.md" ] || continue
-            if ! grep -q "\*\*$(basename "$d")\*\*" README.md; then
+            n="$(basename "$d")"
+            # A table row, linked or not: | **name** | or | **[name](./skills/name/)** |
+            if ! grep -qE "^\| \*\*(${n}|\[${n}\]\(\./skills/${n}/\))\*\* \|" README.md; then
               echo "::error file=README.md::$d has no row in the skills table"
               fail=1
             fi
