@@ -110,6 +110,12 @@ Decide which event runs which gate, and wire it in:
 Make the CI job **required** in branch protection. A job that runs and can't
 block a merge is a report.
 
+**The pull request's author controls `.gates.yaml`.** A PR can change any
+`command:` in it, and the gate runs whatever the PR says. Run the gate job on
+`pull_request`, never on `pull_request_target`, and give it no secrets on pull
+requests from forks. A gate job holding a deploy key runs a stranger's shell
+command with that key.
+
 **If you skip it:** the gates hold only when someone remembers to run them.
 
 ## Customization 7: Timeouts and slow conditions
@@ -117,7 +123,9 @@ block a merge is a report.
 **Where it is used:** SPEC.md, *Rules for conditions*.
 
 The default per-command timeout is 300 seconds (`--timeout` changes it for a
-run; `timeout:` on a condition changes it for one command). Set a budget for
+run; `timeout:` on a condition changes it for one command). Both take a
+positive number of seconds; anything else exits `2`. A timed-out command is
+killed with everything it started. Set a budget for
 each gate, and move anything slower than that budget into CI rather than a
 local hook.
 

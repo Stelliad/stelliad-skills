@@ -90,7 +90,7 @@ right, and an automated step can't take that responsibility for them.
 
 ## Worked examples
 
-[examples.md](./examples.md) walks through twelve synthetic tickets, including
+[examples.md](./examples.md) walks through fourteen synthetic tickets, including
 the vague request that fails on six defects, the same request written properly,
 and the mechanically clean ticket that's still BLOCKED.
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Regression suite for review-ticket.py. 01-09 are hand-written tickets, one per scenario in the validation set. 10-12 are bodies exactly as GitHub renders a submission from an issue form (.github/ISSUE_TEMPLATE/*.yml), which is the path a human actually takes and the one that broke first: a form renders each field's label verbatim as a heading, and those labels are not the canonical section names. Any new or renamed form field needs a fixture here and a row in the checker's SECTION_ALIASES. Run with scripts/run-fixtures.sh. These double as the worked examples create-ticket/examples.md cites, so an edit here is an edit to reference material. All content is synthetic.",
+  "_comment": "Regression suite for review-ticket.py. 01-09 are hand-written tickets, one per scenario in the validation set. 10-12 are bodies exactly as GitHub renders a submission from an issue form (.github/ISSUE_TEMPLATE/*.yml), which is the path a human actually takes and the one that broke first: a form renders each field's label verbatim as a heading, and those labels are not the canonical section names. The forms behind 10-12 (task.yml, bug.yml, spike.yml) are samples and are not shipped with this skill; SECTION_ALIASES matches their field labels, and your own forms need their own rows and fixtures. 13-14 are regressions for checker bugs: a Critical ticket whose Human Approval says only None, and vague-verb matching inside longer words. Run with scripts/run-fixtures.sh. These double as the worked examples create-ticket/examples.md cites, so an edit here is an edit to reference material. All content is synthetic.",
   "01-vague": {
     "title": "Improve login",
     "labels": [
@@ -122,5 +122,28 @@
     ],
     "verdict": "PASS",
     "scenario": "spike.yml submission. Proves a spike is not required to carry acceptance criteria"
+  },
+  "13-critical-no-approval": {
+    "title": "Purge customer records thirty days after deletion",
+    "labels": [
+      "P2-high",
+      "type:feature",
+      "risk:critical"
+    ],
+    "verdict": "FAIL",
+    "scenario": "Critical risk whose Human Approval section says only None. Treated as absent, so it blocks",
+    "must_block": [
+      "Human Approval"
+    ]
+  },
+  "14-word-boundaries": {
+    "title": "Reject webhooks delivered to the wrong tenant",
+    "labels": [
+      "P1-urgent",
+      "type:security",
+      "risk:high"
+    ],
+    "verdict": "PASS",
+    "scenario": "'incorrectly' in a criterion and 'correctly' in Why. Vague verbs match whole words only, and only in Requirements and Acceptance Criteria"
   }
 }

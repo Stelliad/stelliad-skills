@@ -102,6 +102,8 @@ inside plausible sentences.
 ## Final checklist
 
 - [ ] `review-ticket` is installed beside this skill and customized first
+- [ ] Its labels exist on the target repo (review-ticket/CUSTOMIZE.md,
+      *Create the labels on the repo*)
 - [ ] The create command for your tracker is written down, or you're happy
       stopping at markdown
 - [ ] Your repo's rules, PR template and project gate are findable
@@ -114,6 +116,6 @@ inside plausible sentences.
 |---|---|
 | `SKILL.md` | Triggers and the procedure |
 | `SPEC.md` | Why the steps are in that order, assumptions against decisions, limitations |
-| `examples.md` | Twelve worked examples, which are `review-ticket`'s fixtures |
+| `examples.md` | Fourteen worked examples, which are `review-ticket`'s fixtures |
 | `CUSTOMIZE.md` | This file |
 | `../review-ticket/STANDARD.md` | The Ticket Authoring Standard, the one copy |

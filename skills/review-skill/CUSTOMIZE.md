@@ -2,7 +2,7 @@
 
 ## Before you start
 
-This skill ships with generic names: `incoming/`, "your rules file", "your
+This skill ships with generic names: `~/skill-quarantine/`, "your rules file", "your
 skills directory". The work below binds them to your harness and your agent
 tool. Do it once. An unbound review compares outside skills against a harness
 it can't find, and every behaviour comes back as a gap.
@@ -17,10 +17,15 @@ skip it.
 Pick one path and make three things true of it:
 
 ```
-Quarantine:  incoming/
-Gitignored:  yes (add "incoming/" to .gitignore)
-Loaded by:   nothing. Outside every directory your agent scans for skills
+Quarantine:  ~/skill-quarantine/
+In a repo:   no. Outside every working tree, so nothing can commit it
+Loaded by:   nothing. Outside every directory your agent scans for skills or instructions
 ```
+
+Outside the working tree matters as much as outside the skills directory.
+Agents load `CLAUDE.md`, `AGENTS.md` and their own config folders from where
+they sit, so a quarantine inside your repo can hand a skill's instructions to
+the agent that's reviewing it.
 
 Check the third line against your tool, not against memory. See Customization 3.
 
@@ -68,7 +73,7 @@ If you draft a change for more than one tool, draft it once in the shared
 place (usually `AGENTS.md` or a plain `skills/` folder) and point each tool at
 it, rather than drafting three copies.
 
-**If you skip it:** `incoming/` ends up somewhere your tool auto-loads, which
+**If you skip it:** the quarantine ends up somewhere your tool auto-loads, which
 is the one thing quarantine exists to prevent.
 
 ## Customization 4: Your conventions for a drafted change
@@ -159,13 +164,16 @@ permissive licence, which is safe and occasionally slower than it needs to be.
 This is a procedure an agent follows. If you want the dangerous half to hold
 when nobody's following it, back it with something mechanical:
 
-- `incoming/` in `.gitignore`, so reviewed material can't be committed by accident
+- The quarantine outside every repository, so reviewed material can't be committed by accident
 - A pre-commit check that fails if a new file under your skills directory has no
   provenance line (only if you adopt enough outside ideas to justify it)
 - Your agent's permission rules denying writes to the skills directory without
   approval
 - `scripts/scan-skill.py` as a CI step on any PR that adds a skill, so a new
-  skill gets at least the mechanical sweep
+  skill gets at least the mechanical sweep. The default `--fail-on HIGH` blocks
+  only on HIGH findings, so a clean skill passes. A skill that has to quote
+  attack patterns (this one does) fails by design; clear it with a reason
+  rather than lowering the bar for every skill
 
 A rule in a document shapes behaviour. A required check enforces it.
 
@@ -173,7 +181,7 @@ A rule in a document shapes behaviour. A required check enforces it.
 
 ## Final checklist
 
-- [ ] `incoming/` is gitignored and outside every skill-loading path
+- [ ] The quarantine is outside every repository and every skill-loading path
 - [ ] The places a behaviour can be covered are listed
 - [ ] Your tool's skill paths are confirmed against its current docs
 - [ ] Drafts follow your folder shape, frontmatter and rule wording

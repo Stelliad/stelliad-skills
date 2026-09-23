@@ -9,13 +9,17 @@ Exit codes:
     0  every condition passed
     1  at least one condition failed (the gate is BLOCKED)
     2  the gate could not be evaluated: no gates file, unknown gate,
-       unparseable YAML, or bad arguments
+       unparseable YAML, bad arguments, or a gate that is malformed (no
+       `requires:` list, an empty one, an unknown key, a condition of an
+       unknown type or with a bad value), checked for the named gate and
+       every gate it reaches before any command runs
 
 Condition types, one key per list item under `requires:`:
     file_exists:   "path"                      the path exists as a file
     file_contains: {path, pattern}             the file matches a regex
     command:       {run, exit_code, description, timeout}
                                                the shell command exits as expected
+    command:       "shell string"              short form: run it, expect exit 0
     gate:          other_gate                  another gate in this file passes
 
 Trust: a `command` condition runs its string through /bin/sh with your
@@ -34,6 +38,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 
@@ -110,6 +115,8 @@ def _scalar(raw, lineno):
         return None
     if re.fullmatch(r"[-+]?\d+", s):
         return int(s)
+    if re.fullmatch(r"[-+]?(\d+\.\d*|\.\d+)([eE][-+]?\d+)?", s):
+        return float(s)
     return s
 
 
@@ -262,28 +269,154 @@ def load_yaml(text):
 # Gate evaluation
 # --------------------------------------------------------------------------
 
+GATE_KEYS = ("description", "requires")
+CONDITION_KEYS = {
+    "file_exists": None,  # a bare path, no sub-keys
+    "file_contains": ("path", "pattern", "description"),
+    "command": ("run", "exit_code", "description", "timeout"),
+    "gate": None,         # a bare gate name, no sub-keys
+}
+
+
+def _is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _validate_condition(gate, idx, cond, problems):
+    """Check one item under requires:. Returns a nested gate name, or None."""
+    where = "%s: requires[%d]" % (gate, idx)
+    if not isinstance(cond, dict) or len(cond) != 1:
+        problems.append("%s must carry exactly one condition key, got %r" % (where, cond))
+        return None
+    kind, spec = next(iter(cond.items()))
+    if kind not in CONDITION_KEYS:
+        problems.append("%s: unknown condition type '%s' (use %s)"
+                        % (where, kind, ", ".join(CONDITION_KEYS)))
+        return None
+
+    if kind in ("file_exists", "gate"):
+        if isinstance(spec, (dict, list, bool)) or spec is None or str(spec) == "":
+            problems.append("%s: %s needs a single name or path, got %r" % (where, kind, spec))
+            return None
+        return str(spec) if kind == "gate" else None
+
+    if kind == "command" and isinstance(spec, str):
+        if not spec.strip():
+            problems.append("%s: command is empty" % where)
+        return None
+    if not isinstance(spec, dict):
+        problems.append("%s: %s needs a mapping, got %r" % (where, kind, spec))
+        return None
+    unknown = [k for k in spec if k not in CONDITION_KEYS[kind]]
+    if unknown:
+        problems.append("%s: unknown key(s) %s under %s (allowed: %s)"
+                        % (where, ", ".join(map(str, unknown)), kind, ", ".join(CONDITION_KEYS[kind])))
+
+    if kind == "file_contains":
+        for key in ("path", "pattern"):
+            if spec.get(key) in (None, ""):
+                problems.append("%s: file_contains needs %s" % (where, key))
+        if spec.get("pattern") not in (None, ""):
+            try:
+                re.compile(str(spec["pattern"]), re.MULTILINE)
+            except re.error as exc:
+                problems.append("%s: bad pattern %r (%s)" % (where, spec["pattern"], exc))
+        return None
+
+    # command, long form
+    if spec.get("run") in (None, "") or not isinstance(spec.get("run"), str):
+        problems.append("%s: command needs a non-empty run: string" % where)
+    if "exit_code" in spec:
+        code = spec["exit_code"]
+        if not isinstance(code, int) or isinstance(code, bool) or not 0 <= code <= 255:
+            problems.append("%s: exit_code must be an integer 0-255, got %r" % (where, code))
+    if "timeout" in spec:
+        limit = spec["timeout"]
+        if not _is_number(limit) or limit <= 0:
+            problems.append("%s: timeout must be a positive number of seconds, got %r"
+                            % (where, limit))
+    return None
+
+
+def validate(gates, name):
+    """Check `name` and every gate it reaches. Returns a list of problems.
+
+    A malformed gate is a gate that could not be evaluated, not one that
+    passed: a misspelled `requires:` would otherwise read as zero conditions
+    and exit 0.
+    """
+    problems, todo, seen = [], [name], set()
+    while todo:
+        gate = todo.pop()
+        if gate in seen:
+            continue
+        seen.add(gate)
+        if gate not in gates:
+            problems.append("gate '%s' is required by another gate but not defined" % gate)
+            continue
+        body = gates[gate]
+        if not isinstance(body, dict):
+            problems.append("%s: needs a mapping with requires:, got %r" % (gate, body))
+            continue
+        unknown = [k for k in body if k not in GATE_KEYS]
+        if unknown:
+            problems.append("%s: unknown key(s) %s (allowed: %s)"
+                            % (gate, ", ".join(map(str, unknown)), ", ".join(GATE_KEYS)))
+        requires = body.get("requires")
+        if not isinstance(requires, list) or not requires:
+            problems.append("%s: requires: must be a non-empty list of conditions" % gate)
+            continue
+        for idx, cond in enumerate(requires):
+            nested = _validate_condition(gate, idx, cond, problems)
+            if nested is not None:
+                todo.append(nested)
+    return problems
+
+
 def _check(description, passed, fix="", children=None):
     return {"description": description, "pass": bool(passed), "fix": fix,
             "children": children or []}
 
 
 def evaluate(gates, name, project, timeout, stack=()):
-    """Return (checks, passed_count, failed_count) for one gate."""
-    gate = gates.get(name) or {}
-    requires = gate.get("requires") or []
-    if not isinstance(requires, list):
-        return [_check("'requires' is not a list", False, "fix %s in .gates.yaml" % name)], 0, 1
-    checks = []
-    for cond in requires:
-        checks.append(_evaluate_condition(gates, cond, project, timeout, stack + (name,)))
+    """Return (checks, passed_count, failed_count) for one validated gate."""
+    checks = [_evaluate_condition(gates, cond, project, timeout, stack + (name,))
+              for cond in gates[name]["requires"]]
     passed = sum(1 for c in checks if c["pass"])
     return checks, passed, len(checks) - passed
 
 
+def _kill_tree(proc):
+    """Kill the shell and everything it started, not just the shell."""
+    if hasattr(os, "killpg"):
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            proc.kill()
+    else:
+        proc.kill()
+    proc.wait()
+
+
+def _run(cmd, project, limit):
+    """Run cmd through the shell. Returns its exit code, or None on timeout."""
+    kwargs = dict(shell=True, cwd=project, stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    if hasattr(os, "killpg"):
+        # Own process group, so a timeout can kill the command's children too.
+        kwargs["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **kwargs)
+    try:
+        return proc.wait(timeout=limit)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        return None
+    except BaseException:
+        _kill_tree(proc)
+        raise
+
+
 def _evaluate_condition(gates, cond, project, timeout, stack):
-    if not isinstance(cond, dict) or len(cond) != 1:
-        return _check("Malformed condition: %r" % (cond,), False,
-                      "each item under requires: carries exactly one condition key")
     kind, spec = next(iter(cond.items()))
 
     if kind == "file_exists":
@@ -293,55 +426,38 @@ def _evaluate_condition(gates, cond, project, timeout, stack):
                       ok, "" if ok else "create %s" % path)
 
     if kind == "file_contains":
-        if not isinstance(spec, dict) or "path" not in spec or "pattern" not in spec:
-            return _check("file_contains needs path and pattern", False, "fix the condition")
         path, pattern = str(spec["path"]), str(spec["pattern"])
-        full = os.path.join(project, path)
         try:
-            with open(full, encoding="utf-8", errors="replace") as fh:
+            with open(os.path.join(project, path), encoding="utf-8", errors="replace") as fh:
                 ok = re.search(pattern, fh.read(), re.MULTILINE) is not None
         except OSError:
             ok = False
-        except re.error as exc:
-            return _check("%s: bad pattern %r (%s)" % (path, pattern, exc), False, "fix the regex")
         label = spec.get("description") or "%s matches %s" % (path, pattern)
         return _check(label, ok, "" if ok else "add content matching %s to %s" % (pattern, path))
 
     if kind == "command":
         if isinstance(spec, str):
             spec = {"run": spec}
-        if not isinstance(spec, dict) or "run" not in spec:
-            return _check("command needs run", False, "fix the condition")
-        cmd = str(spec["run"])
-        expected = int(spec.get("exit_code", 0))
+        cmd = spec["run"]
+        expected = spec.get("exit_code", 0)
         label = spec.get("description") or cmd
-        limit = int(spec.get("timeout", timeout))
-        try:
-            proc = subprocess.run(cmd, shell=True, cwd=project, stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
-                                  timeout=limit)
-            actual = proc.returncode
-        except subprocess.TimeoutExpired:
-            return _check(label, False, "timed out after %ds: %s" % (limit, cmd))
+        limit = spec.get("timeout", timeout)
+        actual = _run(cmd, project, limit)
+        if actual is None:
+            return _check(label, False, "timed out after %gs: %s" % (limit, cmd))
         ok = actual == expected
         return _check(label, ok, "" if ok else "exit %d, expected %d: %s" % (actual, expected, cmd))
 
-    if kind == "gate":
-        nested = str(spec)
-        if nested in stack:
-            cycle = " -> ".join(stack + (nested,))
-            return _check("Gate cycle: %s" % cycle, False, "break the cycle in .gates.yaml")
-        if nested not in gates:
-            return _check("Nested gate '%s' not defined" % nested, False,
-                          "define %s in .gates.yaml" % nested)
-        children, _, failed = evaluate(gates, nested, project, timeout, stack)
-        ok = failed == 0
-        return _check("gate: %s" % nested, ok,
-                      "" if ok else "%d condition(s) failed inside %s" % (failed, nested),
-                      children)
-
-    return _check("Unknown condition type '%s'" % kind, False,
-                  "use file_exists, file_contains, command or gate")
+    # kind == "gate"; validate() has already confirmed it is defined.
+    nested = str(spec)
+    if nested in stack:
+        cycle = " -> ".join(stack + (nested,))
+        return _check("Gate cycle: %s" % cycle, False, "break the cycle in .gates.yaml")
+    children, _, failed = evaluate(gates, nested, project, timeout, stack)
+    ok = failed == 0
+    return _check("gate: %s" % nested, ok,
+                  "" if ok else "%d condition(s) failed inside %s" % (failed, nested),
+                  children)
 
 
 # --------------------------------------------------------------------------
@@ -364,12 +480,26 @@ def _render(checks, color, prefix=""):
     return lines
 
 
+def _describe(gate_body):
+    return gate_body.get("description", "") if isinstance(gate_body, dict) else ""
+
+
 def _fail_setup(args, reason):
     if args.json:
         print(json.dumps({"gate": args.gate, "available": False, "reason": reason, "checks": []}))
     else:
         print("ERROR: %s" % reason, file=sys.stderr)
     return 2
+
+
+def _positive_seconds(text):
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("not a number: %r" % text)
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be greater than 0, got %r" % text)
+    return int(value) if value.is_integer() else value
 
 
 def main(argv=None):
@@ -379,7 +509,7 @@ def main(argv=None):
     ap.add_argument("--file", "-f", help="gates file (default: <project>/.gates.yaml)")
     ap.add_argument("--list", "-l", action="store_true", help="list the gates and exit")
     ap.add_argument("--json", "-j", action="store_true", help="print one JSON object")
-    ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
+    ap.add_argument("--timeout", type=_positive_seconds, default=DEFAULT_TIMEOUT,
                     help="per-command timeout in seconds (default %d)" % DEFAULT_TIMEOUT)
     args = ap.parse_args(argv)
 
@@ -400,18 +530,23 @@ def main(argv=None):
 
     if args.list or not args.gate:
         if args.json:
-            print(json.dumps({name: (g or {}).get("description", "") for name, g in gates.items()}))
+            print(json.dumps({name: _describe(g) for name, g in gates.items()}))
         else:
             print("Gates in %s:" % gates_file)
             for name, g in gates.items():
-                print("  %-22s %s" % (name, (g or {}).get("description", "")))
+                print("  %-22s %s" % (name, _describe(g)))
         return 0
 
     if args.gate not in gates:
         return _fail_setup(args, "gate '%s' not in %s (have: %s)"
                            % (args.gate, gates_file, ", ".join(gates)))
 
-    description = (gates[args.gate] or {}).get("description", "")
+    problems = validate(gates, args.gate)
+    if problems:
+        return _fail_setup(args, "%s: gate '%s' is malformed:\n  %s"
+                           % (gates_file, args.gate, "\n  ".join(problems)))
+
+    description = gates[args.gate].get("description", "")
     checks, passed, failed = evaluate(gates, args.gate, project, args.timeout)
     total = passed + failed
 

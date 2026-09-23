@@ -1,9 +1,10 @@
 # Worked examples
 
-Twelve scenarios, each a real file in
+Fourteen scenarios, each a real file in
 [review-ticket/fixtures/](../review-ticket/fixtures/). They're the reference
 material for what a ticket should look like, and they're also the checker's
-regression suite, so they can't quietly rot into examples that no longer pass.
+regression suite, which CI runs on every pull request, so they can't quietly
+rot into examples that no longer pass.
 
 ```bash
 bash ../review-ticket/scripts/run-fixtures.sh
@@ -22,7 +23,9 @@ The bodies aren't reproduced here. Read the fixture.
 | Research spike | `07-spike.md` | PASS | A decision as the deliverable, no implementation criteria |
 | Unresolved decision | `08-blocked.md` | PASS, and BLOCKED on judgement | See below |
 | Requires human approval | `09-human-approval.md` | PASS | What an agent may build against what it may run |
-| Issue form submissions | `10-form-task.md`, `11-form-bug.md`, `12-form-spike.md` | PASS | Form labels normalise to the standard's sections |
+| Issue form submissions | `10-form-task.md`, `11-form-bug.md`, `12-form-spike.md` | PASS | Form labels normalise to the standard's sections (sample forms, not shipped) |
+| Critical, approval says "None" | `13-critical-no-approval.md` | FAIL | A placeholder Human Approval counts as absent |
+| Vague word inside a longer one | `14-word-boundaries.md` | PASS | "incorrectly" isn't "correctly" |
 
 ## The one that matters: mechanically clean, still not Ready
 
@@ -49,7 +52,7 @@ Filed as:
 Improve login.
 ```
 
-Written out as `01-vague.md`, it still fails on six blocking defects. Expanding
+Written out as `01-vague.md`, it still fails on five blocking defects. Expanding
 a vague request into more words doesn't make it Ready, and the checker is
 deliberately unimpressed by volume:
 
@@ -57,10 +60,13 @@ deliberately unimpressed by volume:
 |---|---|
 | Title is generic | Unidentifiable in a queue of forty issues |
 | Objective is two words | Nothing says what would be true when it's done |
-| Objective says "improve" | Names a direction, not a destination |
 | Why is three words | A session with no history can't tell whether this matters |
 | "Login works better" | Can't resolve to PASS or FAIL by observation |
 | Scope names no out | Nothing stops this becoming a login redesign |
+
+The objective's "improve" isn't one of the five. The checker bans vague verbs
+only in requirements and acceptance criteria; an objective that names a
+direction rather than a destination fails Ready item 1, which is judgement.
 
 `02-well-defined.md` is the same underlying request after the questions were
 asked. What changed: the objective states the security outcome rather than the

@@ -28,10 +28,6 @@ raises first, and it is cheap to fix now.
 `High`. Touches authentication and the account recovery path, so a defect
 either locks real users out of recovery or leaves the enumeration open.
 
-## Human Approval
-
-None. No production credential, IAM, or schema change.
-
 ## Verification
 
 - A known and an unknown address produce byte-identical responses

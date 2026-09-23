@@ -145,6 +145,22 @@ MEASURABLE = re.compile(
     re.IGNORECASE,
 )
 
+# Whole words only, so "correctly" does not fire inside "incorrectly" and
+# "better" does not fire inside "bettering". Letters on either side disqualify
+# a match; punctuation does not, which keeps "etc." and "user-friendly" working.
+VAGUE_PATTERNS = [
+    (verb, re.compile(r"(?<![a-z])" + re.escape(verb) + r"(?![a-z])"))
+    for verb in VAGUE_VERBS
+]
+
+
+def vague_verbs_in(text: str) -> list[str]:
+    """Vague verbs in one line that no measurable target on that line rescues."""
+    if MEASURABLE.search(text):
+        return []
+    lowered = text.lower()
+    return [verb for verb, pattern in VAGUE_PATTERNS if pattern.search(lowered)]
+
 GENERIC_TITLES = {
     "auth updates",
     "api work",
@@ -221,9 +237,10 @@ def read_issue(number: str, repo: str) -> dict:
 # is not the canonical section name. Normalise rather than forcing every form
 # label down to a bare noun, because several of them earn their extra words.
 #
-# Keys are casefolded heading text. Your .github/ISSUE_TEMPLATE/*.yml field
-# labels are the source of the left-hand side; a new field label added there
-# needs a row here.
+# Keys are casefolded heading text. The rows below match the field labels of a
+# set of sample task, bug and spike issue forms that are NOT shipped with this
+# skill; fixtures 10 to 12 are their rendered output. Replace them with your
+# own .github/ISSUE_TEMPLATE/*.yml field labels (CUSTOMIZE.md, Customization 4).
 SECTION_ALIASES = {
     "acceptance criteria": "Acceptance Criteria",
     "current behaviour": "Current Behavior",
@@ -246,6 +263,10 @@ SECTION_ALIASES = {
     "context and dependencies": "Context",
     "suspected scope": "Evidence",
 }
+
+# Section content that carries no information. A section holding only one of
+# these is treated as saying nothing.
+PLACEHOLDERS = {"n/a", "n/a.", "na", "none", "none.", "tbd", "todo", "-"}
 
 # GitHub writes this into the body for an optional field left blank.
 NO_RESPONSE = {"_no response_", "_none_"}
@@ -314,7 +335,7 @@ def check_sections(sections: dict[str, list[str]], shape: str, report: Report) -
         if not content:
             report.block(f"## {name} is present but empty.")
             continue
-        if content.lower() in {"n/a", "none", "tbd", "todo", "-", "none."}:
+        if content.lower() in PLACEHOLDERS:
             if name in ("Dependencies", "Human Approval"):
                 report.warn(f'## {name} says "{content}". The standard says omit the section rather than fill it.')
             else:
@@ -348,9 +369,8 @@ def check_acceptance_criteria(sections: dict[str, list[str]], report: Report) ->
             text = is_box.group(1).strip()
             if len(text.split()) < 3:
                 report.warn(f'Acceptance criterion "{text}" is too short to be verifiable.')
-            for verb in VAGUE_VERBS:
-                if verb in text.lower() and not MEASURABLE.search(text):
-                    report.block(f'Acceptance criterion uses "{verb}" with no measurable target: {text[:70]}')
+            for verb in vague_verbs_in(text):
+                report.block(f'Acceptance criterion uses "{verb}" with no measurable target: {text[:70]}')
         elif re.match(r"^\s*[-*]\s+", line):
             report.block(f"Acceptance criteria contain a plain bullet, not a checkbox: {line.strip()[:70]}")
         elif saw_checkbox:
@@ -368,9 +388,16 @@ def check_acceptance_criteria(sections: dict[str, list[str]], report: Report) ->
     return checkboxes
 
 
+# Word minimums for the narrative sections. Standard: "Section set", the
+# minimum lengths under the required template. Vague verbs are not checked
+# here: the standard bans them in Requirements and Acceptance Criteria only,
+# and whether an Objective states an outcome is Ready item 1, a judgement.
+NARRATIVE_MINIMUMS = (("Objective", 8), ("Why", 12), ("Summary", 8), ("Impact", 8))
+
+
 def check_narrative(sections: dict[str, list[str]], report: Report) -> None:
     """Objective and Why have to carry information, not a placeholder sentence."""
-    for name, minimum in (("Objective", 8), ("Why", 12), ("Summary", 8), ("Impact", 8)):
+    for name, minimum in NARRATIVE_MINIMUMS:
         lines = sections.get(name)
         if lines is None:
             continue
@@ -381,9 +408,6 @@ def check_narrative(sections: dict[str, list[str]], report: Report) -> None:
                 f'## {name} is {len(words)} words: "{text[:60]}". Too short to be '
                 "legible to a session with no history."
             )
-        for verb in VAGUE_VERBS:
-            if verb in text.lower() and not MEASURABLE.search(text):
-                report.block(f'## {name} uses "{verb}" with no measurable target: {text[:70]}')
 
 
 def check_unfilled(sections: dict[str, list[str]], report: Report) -> None:
@@ -423,9 +447,8 @@ def check_requirements(sections: dict[str, list[str]], report: Report) -> None:
         text = raw.strip(" -*\t")
         if not text:
             continue
-        for verb in VAGUE_VERBS:
-            if verb in text.lower() and not MEASURABLE.search(text):
-                report.block(f'Requirement uses "{verb}" with no measurable target: {text[:70]}')
+        for verb in vague_verbs_in(text):
+            report.block(f'Requirement uses "{verb}" with no measurable target: {text[:70]}')
 
 
 def check_scope(sections: dict[str, list[str]], report: Report) -> None:
@@ -469,7 +492,10 @@ def check_risk(sections: dict[str, list[str]], labels: list[str], report: Report
 
 
 def check_human_approval(sections: dict[str, list[str]], level: str | None, labels: list[str], report: Report) -> None:
-    has_section = "Human Approval" in sections and "\n".join(sections["Human Approval"]).strip()
+    content = "\n".join(sections.get("Human Approval", [])).strip()
+    # "None" or "N/A" under Critical is the same as no section: the standard
+    # requires it to name what the agent must not execute.
+    has_section = bool(content) and content.lower() not in PLACEHOLDERS
     if level == "critical" and not has_section:
         report.block("Risk is Critical with no ## Human Approval section naming what must not be executed automatically.")
     if has_section and READY_LABEL in labels and HUMAN_REQUIRED_LABEL not in labels:
@@ -484,6 +510,11 @@ def check_dependencies(sections: dict[str, list[str]], repo: str | None, report:
     refs = re.findall(r"#(\d+)", text)
     if not refs and not re.search(r"(ADR|SPEC|spec|decision|migration|deploy|api|service|account|organi[sz]ation|environment|provision|access|contract|approval)", text, re.IGNORECASE):
         report.warn("## Dependencies names nothing resolvable. Use `Depends on #N`, a spec path, or a named decision.")
+    if refs and not repo:
+        report.warn(
+            f"## Dependencies names {', '.join('#' + r for r in sorted(set(refs)))} but no --repo was given, "
+            "so none was resolved. Confirm each is closed before marking this ready."
+        )
     if refs and repo:
         for ref in sorted(set(refs)):
             proc = subprocess.run(

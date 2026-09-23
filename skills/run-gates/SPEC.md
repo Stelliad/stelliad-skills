@@ -8,8 +8,8 @@ is deterministic: a file exists, a file matches a pattern, a command exits with
 the expected code, or another gate passes.
 
 The skill does one thing. It runs the conditions, prints what passed and what
-didn't, and exits `0` or `1`. It doesn't grade, weigh or summarize. The exit
-code is the result.
+didn't, and exits `0` (passed), `1` (blocked) or `2` (couldn't evaluate). It
+doesn't grade, weigh or summarize. The exit code is the result.
 
 ## Why a gate blocks rather than advises
 
@@ -83,14 +83,32 @@ A project can add its own gates for events specific to it: `prod_deploy`,
 
 ## Condition types
 
-Each item under `requires:` carries exactly one condition key.
+A gate is a mapping with two keys: `requires:`, a non-empty list, and an
+optional `description:`. Each item under `requires:` carries exactly one
+condition key.
 
 | Type | Shape | Passes when |
 |---|---|---|
 | `file_exists` | `file_exists: "path"` | The path is a file, relative to the project root |
 | `file_contains` | `path`, `pattern`, optional `description` | The file exists and matches the regex (Python `re`, multiline) |
-| `command` | `run`, optional `exit_code` (default `0`), `description`, `timeout` | The command, run through `/bin/sh` from the project root, exits with `exit_code` |
+| `command` | `run`, optional `exit_code` (integer 0 to 255, default `0`), `description`, `timeout` (seconds, greater than 0) | The command, run through `/bin/sh` from the project root, exits with `exit_code` |
+| `command` (short form) | `command: "make test"` | The same, with `exit_code` `0` and the default timeout |
 | `gate` | `gate: name` | Every condition of that gate passes |
+
+### A malformed gate doesn't pass
+
+Before any command runs, the evaluator checks the named gate and every gate it
+reaches. A missing or empty `requires:`, a key it doesn't recognise (a gate's
+`require:`, a command's `exit-code:`), an unknown condition type, a nested gate
+that isn't defined, a non-integer `exit_code`, a `timeout` that isn't a
+positive number, or a regex that doesn't compile: each one exits `2` and names
+the problem. Without that, a misspelled `requires:` reads as zero conditions,
+and zero failed conditions is a pass. Gates the named one doesn't reach aren't
+checked, so a half-written gate elsewhere in the file doesn't block this one.
+
+On a timeout the command's whole process group is killed, not only the shell,
+so a hung test runner doesn't outlive the gate that reported it. (Platforms
+without process groups fall back to killing the shell.)
 
 A nested gate is evaluated in the same run, and its conditions print indented
 under it. A cycle (`a` requires `b` requires `a`) fails with the cycle named
@@ -133,11 +151,14 @@ each failure. `--json` prints one object:
 When the gate can't be evaluated, `--json` prints
 `{"gate": ..., "available": false, "reason": ..., "checks": []}`.
 
+`--list --json` prints one object mapping each gate name to its description:
+`{"repo_baseline": "The repo meets ...", "build_ready": "..."}`.
+
 | Exit | Means |
 |---|---|
 | `0` | Every condition passed |
 | `1` | At least one failed: the gate is blocked |
-| `2` | Not evaluated: no gates file, unknown gate, unparseable YAML |
+| `2` | Not evaluated: no gates file, unknown gate, unparseable YAML, a malformed gate, or a bad argument such as `--timeout 0` |
 
 Treat `2` as blocked in automation. A gate that can't run hasn't passed.
 
@@ -165,6 +186,12 @@ run-gates/
 - **The built-in YAML parser reads a subset**: block mappings and lists, plain
   and quoted scalars, comments, and `|` / `>` block scalars. Flow collections
   (`[a, b]`, `{a: b}`), anchors and tags need PyYAML installed.
+- **The two parsers disagree in two places.** The built-in one accepts a plain
+  value containing `: ` (`run: echo a: b`), which PyYAML rejects, and it
+  rejects a duplicated key, which PyYAML accepts by keeping the last one. A
+  file that loads on one machine can fail on another depending on whether
+  PyYAML is installed. Quote any value containing `: ` and never repeat a key,
+  and the file reads the same under both.
 - **One run is one run.** A flaky condition that passes today says nothing
   about tomorrow.
 - **It can't enforce itself.** Without a hook or a required CI job running it,

@@ -33,8 +33,8 @@ decides which behaviour was intended.
 
 - `$1`: repository path (required)
 - `--as-spec`: write `SPEC.md` into the repo, where it will govern future work
-- `--as-reading`: write a dated reading outside the governed tree, recording what you found
-- `--subsystem <name>`: recover one subsystem into `docs/specs/`. Run after a whole-system pass, never instead of one
+- `--as-reading`: write a dated reading outside the governed tree, recording what you found. **This is the default** when neither flag is given
+- `--subsystem <name>`: recover one subsystem. With `--as-spec` it goes to `docs/specs/{name}.md`; as a reading it goes beside the whole-system reading (`docs/readings/{name}-spec-{YYYYMMDD}.md`). Run after a whole-system pass, never instead of one
 - `--against <ref>`: pin the reading to a branch, tag or SHA. Defaults to `HEAD`, recorded either way
 - `--questions-only`: skip the document and return the undecided list alone
 
@@ -66,7 +66,11 @@ its source. A clean question list means the run stopped at description.
 
 The recovered spec is not yet a plan. Answer the undecideds with the owner, turn
 the settled requirements into a task list with verification commands, and then
-[implement-spec](../implement-spec/SKILL.md) can work it forward.
+[implement-spec](../implement-spec/SKILL.md) can work it forward. No skill in
+this collection writes that plan and task list: you write them, by hand or with
+your own planner, in the shape [implement-spec's CUSTOMIZE.md](../implement-spec/CUSTOMIZE.md)
+sections 1 and 2 describe (`PLAN.md` and `TASKS.md` beside the spec, requirement
+IDs, and per task a dependency list and a verification command).
 
 ## Before you rely on it
 
