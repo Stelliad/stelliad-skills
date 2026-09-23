@@ -1,0 +1,85 @@
+{
+  "version": "2.0",
+  "identity": {
+    "name": "stelliad-skills",
+    "type": "single"
+  },
+  "directories": {
+    "agentics": "./.agentics"
+  },
+  "structure": {
+    "entryPoints": [
+      { "path": "README.md", "description": "Skill catalog and install instructions" },
+      { "path": "SETUP.md", "description": "Contributor setup: hooks, boundary check, skill-review" },
+      { "path": ".claude-plugin/plugin.json", "description": "Plugin manifest for the stelliad plugin" },
+      { "path": ".claude-plugin/marketplace.json", "description": "Marketplace listing" }
+    ],
+    "sources": [
+      { "path": "skills/**", "description": "The distributed skills: one directory per skill (SKILL.md, README.md, SPEC.md, CUSTOMIZE.md)" }
+    ],
+    "tests": [],
+    "scripts": [
+      { "path": "scripts/validate-skills.sh", "description": "Distribution boundary check, run by pre-commit and CI" },
+      { "path": "scripts/skill-review", "description": "Optional LLM review of changed skills" },
+      { "path": ".githooks/**", "description": "pre-commit, pre-push and skill-review hooks" }
+    ],
+    "config": [
+      { "path": ".github/workflows/validate.yml", "description": "CI gate running the boundary check" },
+      { "path": ".gitignore", "description": "Keeps internal planning, secrets and session scratch out of the distribution" }
+    ],
+    "documentation": [
+      { "path": "README.md", "description": "Public overview" },
+      { "path": "SETUP.md", "description": "Contributor setup" },
+      { "path": "skills/*/README.md", "description": "Per-skill human documentation" }
+    ]
+  },
+  "scopes": {
+    "skills": {
+      "paths": ["skills/**"],
+      "description": "Distributed skill content"
+    },
+    "tooling": {
+      "paths": ["scripts/**", ".githooks/**", ".github/**", ".claude-plugin/**"],
+      "description": "Validation scripts, git hooks, CI and plugin packaging"
+    }
+  },
+  "validation": {
+    "commands": {
+      "test": "bash scripts/validate-skills.sh"
+    },
+    "ignore": [".agentics/**", "logs/**", ".vscode/**"]
+  },
+  "integrations": {
+    "github": {
+      "repo": {
+        "owner": "Stelliad",
+        "name": "stelliad-skills"
+      },
+      "issues": {
+        "enabled": true,
+        "subIssues": false,
+        "commentOnProgress": false
+      },
+      "triggers": {
+        "status": {},
+        "label": {},
+        "mention": {
+          "agety": { "target": "discovery", "args": [] }
+        }
+      },
+      "prReview": {
+        "enabled": true,
+        "quietPeriodMs": 60000
+      }
+    }
+  },
+  "git": {
+    "baseBranch": "main",
+    "source": "origin"
+  },
+  "configuration": {
+    "claude": {
+      "skipPermissions": true
+    }
+  }
+}
