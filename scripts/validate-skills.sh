@@ -50,7 +50,13 @@ fi
 #    Everything in this repo ships to anyone, so it must read as written for no
 #    org in particular.
 # ---------------------------------------------------------------------------
-BLOCKED=( "Sanvio Labs" "sanvio-twin" "company/legal" "company/business" "clients/" ".kiro/steering" ".kiro/skills" "__pycache__" )
+BLOCKED=( "Sanvio Labs" "sanvio-twin" "company/legal" "company/business" "clients/" "__pycache__" )
+
+# A harness's own layout, blocked inside a skill and nowhere else. A skill that
+# reads from one of these paths is wired to somebody's setup. The README names
+# them on purpose, because Kiro documents .kiro/skills as where a user installs
+# a skill, and telling them so is the point of an install section.
+SKILL_ONLY=( ".kiro/steering" ".kiro/skills" )
 
 # Files that enforce the blocked list necessarily quote it, so they match
 # themselves. They are exempt from that sweep and from nothing else: a workflow
@@ -133,6 +139,15 @@ for f in "${FILES[@]}"; do
         fail "$f" "contains '$p'" "Generic for any org, or it does not ship."
       fi
     done
+    case "$f" in
+      skills/*)
+        for p in "${SKILL_ONLY[@]}"; do
+          if printf '%s' "$content" | grep -qF "$p"; then
+            fail "$f" "contains '$p'" "A skill that reads a harness's own layout is wired to one setup."
+          fi
+        done
+        ;;
+    esac
   fi
 
   for s in "${SECRETS[@]}"; do
