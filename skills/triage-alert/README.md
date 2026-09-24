@@ -195,7 +195,7 @@ See `CUSTOMIZE.md` for detailed tuning instructions.
 
 ## Key Files
 
-**`triage-alert/scripts/sentry-fetch.sh` is the only thing here that executes.** It
+**`triage-alert/scripts/sentry-fetch.sh` is the only script this skill ships.** It
 pulls a Sentry issue and its latest event and prints a triage-shaped JSON digest,
 which is stage 1 of the pipeline. It needs `curl`, `jq`, and `SENTRY_AUTH_TOKEN`,
 reads the token from the environment, and never prints it. Set `SENTRY_HOST` for

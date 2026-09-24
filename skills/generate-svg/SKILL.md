@@ -1,6 +1,6 @@
 ---
 name: generate-svg
-description: Hand-craft production-ready SVG images and animations from a description: clean paths, a real viewBox, CSS-only motion, and no embedded rasters.
+description: Hand-craft production-ready SVG images and animations from a description: clean paths, a real viewBox, CSS or SMIL motion and no JavaScript, and no embedded rasters.
 license: MIT
 compatibility: Any project. Output conventions, animation budget and house style adapt via CUSTOMIZE.md. No external dependencies.
 metadata:
@@ -15,7 +15,7 @@ status: active
 # generate-svg
 
 Write the SVG by hand, as code: a real `viewBox`, grouped and named elements,
-CSS-only animation, nothing embedded that is not vector.
+CSS or SMIL animation with no JavaScript, nothing embedded that is not vector.
 
 ## Quick start
 

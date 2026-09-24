@@ -1,6 +1,6 @@
 # Vector Image Generation
 
-**Hand-crafted SVG: a real viewBox, named groups, CSS-only motion, nothing
+**Hand-crafted SVG: a real viewBox, named groups, CSS or SMIL motion and no JavaScript, nothing
 embedded that is not vector.**
 
 ## Running it
