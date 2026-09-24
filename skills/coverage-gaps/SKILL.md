@@ -1,6 +1,6 @@
 ---
 name: coverage-gaps
-description: Find the code paths no test reaches and the external calls no test mocks, ranked by the risk of the code that is uncovered.
+description: Find the code paths no test reaches, ranked by the risk of the code that is uncovered, and the tests that run code without asserting anything about it.
 license: MIT
 compatibility: Adapt to your own stack and thresholds via CUSTOMIZE.md. No external dependencies.
 metadata:
@@ -14,7 +14,7 @@ status: active
 
 # coverage-gaps
 
-Coverage gap analysis. Find the code paths no test reaches and the external calls no test mocks, ranked by the risk of the code that is uncovered.
+Coverage gap analysis. Find the code paths no test reaches, ranked by the risk of the code that is uncovered, and the tests that run code without asserting anything about it.
 
 ## Quick start
 
@@ -26,7 +26,7 @@ Coverage gap analysis. Find the code paths no test reaches and the external call
 
 1. Map exported functions and routes against the tests that touch them
 2. Rank gaps by the risk tier of the module they sit in
-3. Flag external calls that run unmocked in the suite
+3. Flag false-confidence gaps: tests that execute code and assert nothing, or only a mock's call count
 4. Report what the analysis structurally cannot see
 
 ## Before you rely on it
