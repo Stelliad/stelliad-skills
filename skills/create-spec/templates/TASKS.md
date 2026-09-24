@@ -67,7 +67,8 @@ Result:
 ## Requirement Traceability
 
 One row per ID in the spec, every prefix. An ID with no row is a requirement
-the plan has silently dropped.
+the plan has silently dropped. Cite an ID from another spec as
+`SPEC-{NNN}/{ID}`.
 
 | Requirement | Task | Implementation | Verification | Status |
 |---|---|---|---|---|

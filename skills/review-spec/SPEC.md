@@ -70,6 +70,7 @@ already exists; this skill runs them and collects what they say.
 | Dead code | [find-dead-code](../find-dead-code/SKILL.md) | When the diff removes or replaces anything |
 | Test coverage | [coverage-gaps](../coverage-gaps/SKILL.md) | Always. A requirement with no test is the finding most often missed |
 | Fresh verification | [verify-done](../verify-done/SKILL.md), re-running Final Verification | Always. The evidence section records a past run; this is the current one |
+| UI surface | Screenshots or a driven walkthrough of each screen the spec names, one image per requirement it evidences, with the requirement ID in the file name. A requirement about what a person sees isn't verified by a unit test alone | When the spec names a screen, a page or a visible state |
 | Your panel | Whatever CUSTOMIZE.md binds: a security lead, an architect, a separate agent per lens | When bound |
 
 Skip a lens only when its trigger doesn't apply, and name every skipped lens

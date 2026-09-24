@@ -74,7 +74,8 @@ The gate is the method; what counts as evidence of readiness is yours:
 ```
 Ready is set by:          <the status field / a label / an approval on the PR that adds the spec>
 Recovered specs need:     <e.g. owner sign-off recorded in the question list>
-Also required before planning: <e.g. a tech-doc-review score, a security reviewer's sign-off>
+Also required before planning: <e.g. a tech-doc-review score, a security reviewer's sign-off,
+                                a panel review of the spec itself such as the agentic plugin's design-review>
 ```
 
 **Don't soften the gate itself.** Teams that let the planner "plan what it can"

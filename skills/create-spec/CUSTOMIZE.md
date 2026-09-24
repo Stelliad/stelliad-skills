@@ -47,8 +47,22 @@ the matching sections from the plan template, rather than filling them with
 "None identified" forever: a section that is always empty stops being read, and
 the one time it matters nobody looks.
 
+IDs are unique within a spec. Anywhere an ID is cited outside its own folder
+(another spec's Dependencies, a commit message, a ticket), qualify it with the
+spec number: `SPEC-004/REQ-001`. Spec numbers are never reused, so the
+qualified form is unique across the repository with no allocator to keep in
+sync.
+
 If your organization allocates requirement IDs globally rather than per spec,
 say so here, and write the allocator's name where step 4 fills an ID.
+
+**If you also run a tool that reads EARS IDs** (the agentic plugin's
+decomposition, for one, only recognises `REQ-{letter}-{digits}`), put the
+pattern's letter in the ID: `REQ-U-001`, `REQ-E-001`, `REQ-S-001`, `REQ-O-001`,
+`REQ-W-001` for ubiquitous, event, state, optional and unwanted behaviour. The
+Pattern column already records the type; this carries it into the ID so both
+tools trace the same requirement. A complex requirement takes the letter of its
+leading clause.
 
 **If you skip it:** every prefix above, three digits, reset per spec.
 
