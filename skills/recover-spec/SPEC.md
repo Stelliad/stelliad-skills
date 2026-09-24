@@ -261,7 +261,9 @@ three questions.
 | [secret-scan](../secret-scan/SKILL.md) | Run it first on any inherited repo. A secret found mid-recovery is a rotation event, not a footnote |
 | [generate-readme](../generate-readme/SKILL.md) | A README orients a newcomer. A spec governs the build. A README is never a substitute |
 | [repo-audit](../repo-audit/SKILL.md), [review-principles](../review-principles/SKILL.md) | Grade how the code is built. This skill records what it does. Neither answers the other |
-| [implement-spec](../implement-spec/SKILL.md) | Downstream, once the undecideds are answered and the settled requirements become a task list with verification commands. You write that plan and task list; nothing here generates them. Its CUSTOMIZE.md sections 1 and 2 give the shape it reads |
+| [plan-spec](../plan-spec/SKILL.md) | Downstream, once the undecideds are answered. Plans a root `SPEC.md` in place, and refuses any requirement still graded undecided or contradiction |
+| [create-spec](../create-spec/SKILL.md) | Downstream when the work is a change to the recovered system: the change gets its own spec, citing this one as the baseline |
+| [implement-spec](../implement-spec/SKILL.md), [review-spec](../review-spec/SKILL.md) | The rest of the loop, after plan-spec has written the task list |
 
 ## When to run
 

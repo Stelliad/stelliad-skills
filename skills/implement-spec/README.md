@@ -49,6 +49,12 @@ in which case it records the blocker and moves on.
 `test-first` produces the evidence, `verify-done` refuses the claim without it.
 This skill calls both, once per task.
 
+It is the third step of a loop: [create-spec](../create-spec/SKILL.md) (or
+[recover-spec](../recover-spec/SKILL.md) for existing code) writes the spec,
+[plan-spec](../plan-spec/SKILL.md) writes the plan and task list this reads,
+and [review-spec](../review-spec/SKILL.md) is the independent review once the
+last task is checked.
+
 ## What it will not do
 
 It inherits the task list's quality: a verification command that proves nothing
