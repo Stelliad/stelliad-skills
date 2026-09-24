@@ -31,7 +31,10 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 | **[find-dead-code](./skills/find-dead-code/)** | Find orphaned files, unused exports, dead dependencies and commented-out code, each row carrying a confidence level, and delete nothing | Teams cutting bundle size, anyone inheriting a codebase, security-minded reviewers | ✅ Ready |
 | **[generate-svg](./skills/generate-svg/)** | Hand-craft SVG icons, marks and diagrams as code: real viewBox, named groups, CSS or SMIL motion and no JavaScript | Product teams, engineers documenting systems, anyone wanting an editable vector | ✅ Ready |
 | **[stress-test-plan](./skills/stress-test-plan/)** | Attack a plan before it is built: enumerate the ways it fails, keep the ones that are both plausible and expensive, and return the cheapest test for each | Founders, product leads, anyone about to commit a quarter to a plan | ✅ Ready |
+| **[create-spec](./skills/create-spec/)** | Turn an idea into a draft spec in a numbered folder, filling only what was said and leaving every gap as an open question for a named person. Ships the spec, plan and task templates the loop reads | Teams running agents against specs, leads turning a conversation into work | ✅ Ready |
+| **[plan-spec](./skills/plan-spec/)** | Refuse a spec that isn't ready, read the repository it governs, then write a plan citing what it read and a task list where every task carries its requirements, dependencies and a real verification command | Teams running agents against specs, leads who review plans before work starts | ✅ Ready |
 | **[implement-spec](./skills/implement-spec/)** | Work a spec's task list forward one task at a time, test first and verified, keeping the checkbox, the evidence and the requirement status honest | Teams running agents against written specs, anyone resuming work they left a week ago | ✅ Ready |
+| **[review-spec](./skills/review-spec/)** | Independent final review of a finished spec: walk every requirement to its code and test, delegate the lenses to reviewers that already exist, rank findings CRITICAL to INFO into the task list, and leave completion to a person | Teams running coding agents, leads who sign off on finished work | ✅ Ready |
 | **[design-printed-part](./skills/design-printed-part/)** | Parametric CadQuery for FDM: the model derives its own dimensions, refuses what cannot fit, proves fit by measured interference, then re-proves it at printed tolerances | Hardware and product teams, anyone printing a part that has to fit something bought | ✅ Ready |
 | **[review-intake](./skills/review-intake/)** | Process review feedback as a technical exchange: clarify the whole set first, verify each item against the codebase, disposition every one, push back with evidence | Teams running coding agents, engineers on review-heavy teams | ✅ Ready |
 | **[run-gates](./skills/run-gates/)** | Runs the conditions in a repo's `.gates.yaml` (files, patterns, commands, nested gates) and exits non-zero on any failure, so a checkpoint blocks instead of advising | Teams running coding agents, leads standardizing readiness across repos, anyone deploying from CI | ✅ Ready |
@@ -54,6 +57,8 @@ Skills run as [Claude Code](https://claude.com/claude-code) Skills or standalone
 **[review-skill](./skills/review-skill/SPEC.md)** replaces "install" with "review, then adopt the gaps." The outside skill sits in a quarantine outside the repo, because agents load a stray `CLAUDE.md` by where it is, and it never enters your skills directory. The shipped scanner catches the payload's shape. Only reading catches the persuasion, and 91% of the confirmed malicious skills in Snyk's ToxicSkills scan paired their payload with prompt injection. Any HIGH flag nobody has cleared means stop, before the comparison makes the skill look useful.
 
 **[stress-test-plan](./skills/stress-test-plan/SPEC.md) and [implement-spec](./skills/implement-spec/SPEC.md)** sit on either side of the work. stress-test-plan runs before anything is built, and its rule is that a failure mode only earns a place if it is both plausible and expensive, which is what keeps the output short enough to act on. implement-spec runs after the plan is written, and it stops rather than editing the spec when a task reveals the spec was wrong.
+
+**[create-spec](./skills/create-spec/SPEC.md), [plan-spec](./skills/plan-spec/SPEC.md), [implement-spec](./skills/implement-spec/SPEC.md) and [review-spec](./skills/review-spec/SPEC.md)** are one loop over three files in one folder, `specs/{NNN}-{slug}/`. Each step refuses the shortcut that would make the next one easier. create-spec leaves what it wasn't told as open questions instead of plausible rows, and plan-spec won't plan until a person has marked the spec ready, because a plan turns a draft's gaps into tasks that look settled. implement-spec stops rather than edit the spec. review-spec starts from the requirements, not the implementer's traceability table, and hands its lenses to reviewers that already exist. None of the four marks a spec complete. [recover-spec](./skills/recover-spec/SKILL.md) is the other way in, for code that already runs.
 
 **[recover-spec](./skills/recover-spec/SPEC.md)** exists to stop a description of the code passing as a specification, which turns every bug into a requirement. Every statement is graded observed, inferred, intended, undecided or contradiction, and the undecideds are the deliverable. `MAX_RETRIES = 3` is observed behaviour and an undecided requirement, and only the owner knows which one it is. A run with zero undecideds has failed.
 
@@ -91,7 +96,7 @@ Every skill is a plain [Agent Skills](https://agentskills.io) folder: a `SKILL.m
 
 ### Claude Code
 
-Install all twenty-five as a plugin:
+Install all twenty-eight as a plugin:
 
 ```
 /plugin marketplace add Stelliad/stelliad-skills
@@ -149,7 +154,7 @@ cp -R stelliad-skills/skills/review-principles ~/.kiro/skills/
 
 In the IDE you can skip the clone: **Agent Steering & Skills → + → Import a skill**, and paste the skill's folder URL, such as `https://github.com/Stelliad/stelliad-skills/tree/main/skills/review-principles`. The repo root won't import. Run it with `/review-principles`. Custom agents don't load skills until you add `"resources": ["skill://.kiro/skills/*/SKILL.md"]` to their config. See [Kiro skills](https://kiro.dev/docs/skills/).
 
-To take all twenty-five into Codex or Kiro, copy the whole set: `cp -R stelliad-skills/skills/* ~/.agents/skills/` or `~/.kiro/skills/`.
+To take all twenty-eight into Codex or Kiro, copy the whole set: `cp -R stelliad-skills/skills/* ~/.agents/skills/` or `~/.kiro/skills/`.
 
 ### Adapt it
 

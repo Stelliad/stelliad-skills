@@ -31,6 +31,11 @@ Nothing else. In particular, nothing from an earlier conversation that is not
 written in those three files: that is what makes the work resumable, and it is
 the property people lose first.
 
+[create-spec](../create-spec/SKILL.md) writes the spec and
+[plan-spec](../plan-spec/SKILL.md) writes the plan and task list, in the shapes
+[create-spec's templates](../create-spec/templates/) define. Any documents
+carrying the same things work; CUSTOMIZE.md binds the names.
+
 ## The loop
 
 ### 1. Select
@@ -101,7 +106,8 @@ hides blockers until the end is worse than one that stops.
 
 At the end: which tasks were completed and with what evidence, every blocker,
 and how many unblocked tasks remain. If everything is checked, say so and point
-at the final verification and an independent review, but do not run either
+at the final verification and an independent review
+([review-spec](../review-spec/SKILL.md)), but do not run either
 automatically. Completion is confirmed, not assumed.
 
 ## Limitations

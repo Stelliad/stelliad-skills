@@ -64,13 +64,19 @@ its source. A clean question list means the run stopped at description.
 
 ## Downstream
 
-The recovered spec is not yet a plan. Answer the undecideds with the owner, turn
-the settled requirements into a task list with verification commands, and then
-[implement-spec](../implement-spec/SKILL.md) can work it forward. No skill in
-this collection writes that plan and task list: you write them, by hand or with
-your own planner, in the shape [implement-spec's CUSTOMIZE.md](../implement-spec/CUSTOMIZE.md)
-sections 1 and 2 describe (`PLAN.md` and `TASKS.md` beside the spec, requirement
-IDs, and per task a dependency list and a verification command).
+The recovered spec is not yet a plan. Answer the undecideds with the owner
+first: [plan-spec](../plan-spec/SKILL.md) won't plan a requirement still graded
+undecided or contradiction. Then one of two routes:
+
+- **Bringing the system into line with its spec** (fixing the contradictions
+  and candidate defects the owner ruled on): run plan-spec on the root
+  `SPEC.md` by path. It writes `PLAN.md` and `TASKS.md` beside it.
+- **Changing the system:** write the change with
+  [create-spec](../create-spec/SKILL.md), citing the recovered spec as its
+  baseline, and plan that.
+
+Either way, [implement-spec](../implement-spec/SKILL.md) works the tasks
+forward and [review-spec](../review-spec/SKILL.md) checks the result.
 
 ## Before you rely on it
 

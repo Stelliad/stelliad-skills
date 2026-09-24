@@ -56,7 +56,9 @@ inferred, loses exactly the distinction the skill exists to keep.
 
 If your specs number requirements (`REQ-001`, `FR-12`), bind the scheme here so
 a recovered spec slots into the same traceability as a written one, and so
-[implement-spec](../implement-spec/SKILL.md) can cite the IDs later.
+[plan-spec](../plan-spec/SKILL.md) and [implement-spec](../implement-spec/SKILL.md)
+can cite the IDs later. Use the scheme bound in
+[create-spec's CUSTOMIZE.md](../create-spec/CUSTOMIZE.md), Customization 2.
 
 ```
 Requirement IDs:  <e.g. REQ-001>

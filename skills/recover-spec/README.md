@@ -50,8 +50,10 @@ produces.
 
 [tech-doc-review](../tech-doc-review/SKILL.md) grades the output.
 [coverage-gaps](../coverage-gaps/SKILL.md) takes the untested sections.
-Once the questions are answered and the requirements become tasks,
-[implement-spec](../implement-spec/SKILL.md) works them forward.
+Once the questions are answered, [plan-spec](../plan-spec/SKILL.md) turns the
+spec into tasks (or [create-spec](../create-spec/SKILL.md) writes the change
+you want to make against it), and [implement-spec](../implement-spec/SKILL.md)
+works them forward.
 
 ## What it will not do
 

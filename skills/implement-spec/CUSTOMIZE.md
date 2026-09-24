@@ -20,10 +20,26 @@ Where they live:    <e.g. specs/{id}-{slug}/>
 ```
 
 **If you skip it:** the skill looks for the shipped names, `SPEC.md`,
-`PLAN.md` and `TASKS.md` in one spec folder, and stops if they are not there.
-`TASKS.md` is a checklist, one task per line, each carrying its ID, the
+`PLAN.md` and `TASKS.md`, together in one spec folder, by default
+`specs/{NNN}-{slug}/` at the repository root, and stops if they are not there.
+That is the layout [create-spec](../create-spec/SKILL.md) writes and
+[plan-spec](../plan-spec/SKILL.md) fills; bind it once in
+[create-spec's CUSTOMIZE.md](../create-spec/CUSTOMIZE.md) and all four skills
+in the loop follow.
+
+`TASKS.md` is a checklist, one task per checkbox, each carrying its ID, the
 requirement IDs it serves, the task IDs it depends on, and its verification
-command:
+command. The shipped shape, from
+[create-spec's task template](../create-spec/templates/TASKS.md):
+
+```
+- [ ] T003 Reject expired tokens
+  - Requirements: REQ-004, AC-004
+  - Depends on: T001, T002
+  - Verification: `uv run pytest tests/test_auth.py -k expired`
+```
+
+A compact form carrying the same four things reads the same way:
 
 ```
 - [ ] T003 Reject expired tokens (REQ-004; depends: T001, T002)
@@ -31,8 +47,9 @@ command:
 ```
 
 A spec recovered from existing code with
-[recover-spec](../recover-spec/SKILL.md) arrives as a `SPEC.md` only: write the
-plan and the task list before running this.
+[recover-spec](../recover-spec/SKILL.md) arrives as a `SPEC.md` only: run
+[plan-spec](../plan-spec/SKILL.md) on it once its undecideds are answered, then
+this.
 
 ## Customization 2: The ID scheme
 
@@ -45,8 +62,10 @@ Other prefixes:   <security, privacy, infrastructure, whatever you use>
 Traceability:     <a table in the task list / a column on the board / none>
 ```
 
-**If you skip it:** requirement status is recorded in prose, which is harder to
-audit later.
+**If you skip it:** the scheme in create-spec's templates: `REQ-001` and the
+other prefixes scoped to the spec, `T001` across it, and status in the task
+list's Requirement Traceability table. With no task list from plan-spec,
+requirement status is recorded in prose, which is harder to audit later.
 
 ## Customization 3: Evidence format
 
