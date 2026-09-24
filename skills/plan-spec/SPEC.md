@@ -58,6 +58,13 @@ Also check, in either case: no Open Questions item is still open, every
 requirement has an ID, and every requirement has at least one acceptance
 criterion or verification line.
 
+Where CUSTOMIZE.md binds a panel review of the spec, it runs here, before any
+plan exists: domain reviewers read the spec alone for gaps, conflicts and
+requirements nobody could test. Their findings go to the spec's owner as open
+questions, and the spec isn't ready until each is answered. This is the
+cheapest point to catch a wrong requirement, since nothing has been built on
+it yet. The panel reviews the spec; it never edits it.
+
 **If the spec is not ready, stop.** Report which questions are open, which
 sections are empty, which requirements lack an ID or a criterion, and who owns
 each. Do not inspect, and do not write a partial plan "to get ahead". A plan

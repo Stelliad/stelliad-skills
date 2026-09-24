@@ -62,6 +62,12 @@ ID with no row at all.
 Scope each one to the files this spec changed. Each lens is a reviewer that
 already exists; this skill runs them and collects what they say.
 
+Build the context once and hand every reviewer the same copy: the spec's IDs,
+the diff, and any earlier review's findings with their status. A finding
+whose status is no longer `OPEN` is listed as closed, so no reviewer re-raises
+it as new. Every reviewer states whether each claim was checked against the source;
+a claim that wasn't carries `[Unverified]`.
+
 | Lens | Reviewer | Runs |
 |---|---|---|
 | Correctness | Your harness's code review, where it ships one (Claude Code has `/code-review`); otherwise [review-principles](../review-principles/SKILL.md) plus a line-by-line read of the diff | Always |
@@ -93,6 +99,20 @@ The lenses each see one thing. These are what sits between them:
 - **Unneeded complexity.** More than the spec asked for.
 - **Security at the seams.** Where this change meets the rest of the system,
   which a lens scoped to the diff doesn't see.
+
+Then three rules for what the lenses said:
+
+- **Contradictions get settled at the source.** Where two reviewers disagree
+  (one calls a path safe, another calls it exploitable), read the code and keep
+  the side it supports. Never average two severities, and never report both.
+- **Unverified claims are questions.** Anything still marked `[Unverified]`
+  goes in at `INFO`, addressed to a person, until someone checks it against the
+  code. Ranking it higher lets a reviewer's confidence stand in for evidence.
+- **A shared root cause is one finding.** Three or more findings with the same
+  cause become one systemic finding that names the pattern and the single fix,
+  at the severity of its worst member and never below `MEDIUM`. The individual
+  rows stay, pointing at it. Fixing them one by one leaves the cause to produce
+  the next three.
 
 ### 5. Write findings
 

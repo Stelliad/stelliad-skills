@@ -42,24 +42,22 @@ Runs when:     <always / when SEC- IDs exist / when the diff touches X>
 Its scale:     <how it rates findings, e.g. risk 1-10, or blocker / major / minor>
 ```
 
-A worked example: the [agentic plugin](https://github.com/agentience)'s
-implementation-review sends the changes to a panel of domain experts and
-reports three sections (what's wrong, what's missing, systemic issues), each
-rated High, Medium or Low, and prefixes any claim it didn't check against
-source with `[Unverified]`. Bound here, that looks like:
+A worked example: a panel of domain experts chosen by what the diff touches
+(a data reviewer when the schema moves, a frontend reviewer when a screen
+does), each reporting what's wrong, what's missing and any systemic issue,
+rated High, Medium or Low. Bound here:
 
 ```
-Name:          implementation-review
+Name:          domain-panel
 Lens:          quality
-How to invoke: /agentic:implementation-review
-Runs when:     always
+How to invoke: <one subagent per expert, each given the shared context from step 3>
+Runs when:     always; each expert only when the diff touches its area
 Its scale:     High / Medium / Low, plus [Unverified]
 ```
 
-and in Customization 3, High maps to HIGH, a systemic issue to at least MEDIUM,
-and anything marked `[Unverified]` to INFO until a person checks it against the
-code. That last line matters: an unverified claim is a question, and ranking it
-as a finding lets a reviewer's confidence stand in for evidence.
+and in Customization 3, High maps to HIGH and Medium to MEDIUM. Systemic issues
+and `[Unverified]` claims follow step 4's rules rather than the panel's own
+rating.
 
 Then map its scale onto this skill's, in Customization 3. A panel whose ratings
 aren't mapped gets its findings written at the reviewer's own word, and two

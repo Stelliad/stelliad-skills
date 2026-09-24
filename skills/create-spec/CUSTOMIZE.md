@@ -56,8 +56,8 @@ sync.
 If your organization allocates requirement IDs globally rather than per spec,
 say so here, and write the allocator's name where step 4 fills an ID.
 
-**If you also run a tool that reads EARS IDs** (the agentic plugin's
-decomposition, for one, only recognises `REQ-{letter}-{digits}`), put the
+**If you also run a tool that reads EARS IDs** (some decomposition tools only
+recognise `REQ-{letter}-{digits}`), put the
 pattern's letter in the ID: `REQ-U-001`, `REQ-E-001`, `REQ-S-001`, `REQ-O-001`,
 `REQ-W-001` for ubiquitous, event, state, optional and unwanted behaviour. The
 Pattern column already records the type; this carries it into the ID so both
