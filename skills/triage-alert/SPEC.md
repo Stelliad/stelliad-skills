@@ -234,7 +234,7 @@ triage-alert/scripts/sentry-fetch.sh <issue-url>        # full URL
 triage-alert/scripts/sentry-fetch.sh <issue-id> --raw   # full objects
 ```
 
-This is the one thing in this repository that actually executes. It pulls a
+This is the only script this skill ships. It pulls a
 Sentry issue and its latest event and prints a triage-shaped JSON digest on
 stdout, which is stage 1 of the pipeline above. It exists because MCP servers
 are not available inside a CI runner: use your monitoring tool's MCP integration

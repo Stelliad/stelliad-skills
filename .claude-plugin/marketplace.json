@@ -10,7 +10,7 @@
       "name": "stelliad",
       "source": "./",
       "description": "Twenty-eight skills, each shipping SKILL.md, SPEC.md, CUSTOMIZE.md and README.md",
-      "version": "0.8.0"
+      "version": "0.8.1"
     }
   ]
 }
