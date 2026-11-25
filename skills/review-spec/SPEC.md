@@ -53,9 +53,16 @@ the test, and check the test asserts what the requirement says.
 | `DATA-` | A real constraint, migration or scoping check in the schema or query code |
 | `EVAL-REQ-` | An evaluation case exists, was run, and its result is recorded |
 | `NFR-` | A measurement, with the number, against the stated threshold |
+| `FS-` | No path in the diff takes the shortcut. Read the code against the shortcut's wording, and check the Goal it fakes on inputs beyond the ones the tests use |
 
 A row marked `PASS` with no matching code or test is itself a finding. So is an
 ID with no row at all.
+
+An `FS-` ID is the reverse of the others: it is met when something is absent.
+Passing tests are no evidence here, because a shortcut is by definition a way
+to pass them. A spec with no Forbidden Shortcuts section, or one that reads
+"None identified for this spec", gives this step nothing to check and is not a
+finding.
 
 ### 3. Delegate the lenses
 
@@ -126,6 +133,7 @@ or step found it, and `OPEN`.
 | A requirement not implemented, or implemented wrong, where users or data are affected | `CRITICAL` |
 | Security: a confirmed weakness with no demonstrated exploit | `HIGH` |
 | A requirement not implemented, or implemented wrong, with contained impact | `HIGH` |
+| A Forbidden Shortcut the diff takes | `CRITICAL` where users or data are affected, otherwise `HIGH`, as for the requirement it fakes |
 | A `PASS` with no test behind it, or a test that doesn't assert the requirement | `HIGH` |
 | review-principles 🔴 Critical | `HIGH` |
 | Security: hardening, defence in depth | `MEDIUM` or `LOW` |
