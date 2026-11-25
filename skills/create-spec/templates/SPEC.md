@@ -91,6 +91,21 @@ deciding it looks right.
 |---|---|---|---|
 | AC-001 | REQ-001 | [observable, pass/fail condition] | [command or test that proves it] |
 
+## Forbidden Shortcuts
+
+A shortcut is a way of building this that passes every acceptance criterion
+without achieving the Goals: regenerating what a check only counts,
+special-casing the inputs a test uses, skipping a step no criterion observes.
+Name each one here so the plan, the build and the review all treat it as not
+done. Fakes names the Goal or requirement the shortcut would pretend to meet.
+
+| ID | Shortcut | Fakes |
+|---|---|---|
+| FS-001 | | |
+
+If none apply, write "None identified for this spec" rather than deleting the
+section, so a reviewer can tell it was considered and not skipped.
+
 ## Security Requirements
 
 | ID | Requirement |

@@ -37,11 +37,11 @@ implement-spec's default.
 ```
 Spec IDs:          <e.g. SPEC-001>
 Requirement IDs:   <e.g. REQ-001, scoped to the spec>
-Prefixes in use:   <which of US, REQ, AC, SEC, PRIV, INFRA, OBS, DATA, EVAL-REQ, NFR>
+Prefixes in use:   <which of US, REQ, AC, FS, SEC, PRIV, INFRA, OBS, DATA, EVAL-REQ, NFR>
 Task IDs:          <e.g. T001, sequential across the whole spec>
 ```
 
-The shipped template carries ten prefixes. Most teams need four or five. Delete
+The shipped template carries eleven prefixes. Most teams need four or five. Delete
 the sections you never use from [templates/SPEC.md](./templates/SPEC.md) and
 the matching sections from the plan template, rather than filling them with
 "None identified" forever: a section that is always empty stops being read, and

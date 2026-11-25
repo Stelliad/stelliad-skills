@@ -89,6 +89,12 @@ Requirements are written in EARS form where they have a trigger, a state or an
 undesired condition, and each one is testable. "Should be fast" goes on the
 open question list as "how fast, measured where?", not into the table.
 
+For Forbidden Shortcuts: once the acceptance criteria are written, ask of each
+one how it could pass without its Goal being met. Write a row only where you
+can name the shortcut and the Goal or requirement it fakes. Where criteria are
+still open, the shortcuts are too: leave the section open and add the gap to
+Open Questions, as for any other section.
+
 ### 5. Report
 
 The path written, the assigned ID, and what stands between this draft and
@@ -142,6 +148,12 @@ owner: Dana (CLI maintainer)
 |---|---|---|
 | REQ-001 | Unwanted Behavior | If a note title is empty or whitespace only, then the system shall reject the note with the error "title is required". |
 | REQ-002 | Unwanted Behavior | If a note title is longer than 120 characters, then the system shall reject the note with the error "title is too long (max 120)". |
+
+## Forbidden Shortcuts
+
+| ID | Shortcut | Fakes |
+|---|---|---|
+| FS-001 | Rejecting only the exact titles the tests use, such as one empty string and one 121-character title, instead of every blank or over-long title | REQ-001, REQ-002 |
 
 ## Open Questions
 
